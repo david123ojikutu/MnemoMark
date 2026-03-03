@@ -1,0 +1,10 @@
+node_modules/
+dist/
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+*.log
+
+# Optional: Keep auth-config.js out of git if it contains secrets
+# Uncomment the line below if you want to exclude it
+# src/js/auth-config.js
