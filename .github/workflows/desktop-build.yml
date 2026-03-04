@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, ubuntu-22.04, macos-latest]
+        os: [windows-2022, ubuntu-22.04, macos-12]
 
     runs-on: ${{ matrix.os }}
 
@@ -36,6 +36,19 @@ jobs:
 
       - name: Install deps
         run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: ${{ matrix.os == 'macos-12' && '1' || '0' }}
+
+      - name: Download Electron x64 for macOS (Electron 5.0.4 doesn't support ARM64)
+        if: matrix.os == 'macos-12'
+        working-directory: desktop
+        run: |
+          mkdir -p node_modules/electron/dist
+          curl -L https://github.com/electron/electron/releases/download/v5.0.4/electron-v5.0.4-darwin-x64.zip -o electron.zip
+          unzip -q electron.zip -d node_modules/electron/dist/
+          rm electron.zip
+          echo "5.0.4" > node_modules/electron/path.txt
+          echo "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" >> node_modules/electron/path.txt
 
       - name: Build installers
         run: npm run dist -- --publish never
@@ -63,7 +76,7 @@ jobs:
             desktop/dist/latest*.yml
 
       - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-12'
         uses: actions/upload-artifact@v4
         with:
           name: desktop-macos
