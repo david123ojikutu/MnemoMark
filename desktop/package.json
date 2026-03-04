@@ -10,11 +10,15 @@
         "dist": "electron-builder",
         "postinstall": "electron-builder install-app-deps"
     },
-    "author": "MnemoMark",
+    "author": {
+        "name": "MnemoMark",
+        "email": "david123ojikutu@users.noreply.github.com"
+    },
+    "homepage": "https://github.com/david123ojikutu/MnemoMark",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": ""
+        "url": "https://github.com/david123ojikutu/MnemoMark.git"
     },
     "dependencies": {
         "custom-electron-titlebar": "^3.0.9"
@@ -41,7 +45,9 @@
       "target": [
         "AppImage",
         "deb"
-      ]
+      ],
+      "category": "Utility",
+      "maintainer": "david123ojikutu@users.noreply.github.com"
     },
     "mac": {
       "target": [
