@@ -40,18 +40,37 @@ jobs:
       - name: Build installers
         run: npm run dist -- --publish never
 
-      - name: Upload artifacts
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-2022'
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.os }}
+          name: desktop-windows
           if-no-files-found: error
           path: |
             desktop/dist/*.exe
             desktop/dist/*.exe.blockmap
-            desktop/dist/*.dmg
-            desktop/dist/*.zip
+            desktop/dist/latest*.yml
+
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          if-no-files-found: error
+          path: |
             desktop/dist/*.AppImage
             desktop/dist/*.deb
+            desktop/dist/latest*.yml
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
             desktop/dist/latest*.yml
 
   release:
