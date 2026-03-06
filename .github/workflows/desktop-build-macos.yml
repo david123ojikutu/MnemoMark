@@ -9,8 +9,8 @@ permissions:
 jobs:
   build-macos:
     name: Build (macOS)
-    # Electron 5.0.4 doesn't have darwin-arm64 builds, so we must use an Intel macOS runner.
-    runs-on: macos-13
+    # Electron 5.0.4 doesn't have darwin-arm64 builds, so we manually download x64 Electron binary.
+    runs-on: macos-latest
 
     defaults:
       run:
