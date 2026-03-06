@@ -15,7 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, ubuntu-22.04, macos-12]
+        # Electron 5.0.4 doesn't have darwin-arm64 builds, so we must use an Intel macOS runner.
+        os: [windows-2022, ubuntu-22.04, macos-13]
 
     runs-on: ${{ matrix.os }}
 
@@ -37,10 +38,10 @@ jobs:
       - name: Install deps
         run: npm ci
         env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: ${{ matrix.os == 'macos-12' && '1' || '0' }}
+          ELECTRON_SKIP_BINARY_DOWNLOAD: ${{ matrix.os == 'macos-13' && '1' || '0' }}
 
       - name: Download Electron x64 for macOS (Electron 5.0.4 doesn't support ARM64)
-        if: matrix.os == 'macos-12'
+        if: matrix.os == 'macos-13'
         working-directory: desktop
         run: |
           mkdir -p node_modules/electron/dist
@@ -76,7 +77,7 @@ jobs:
             desktop/dist/latest*.yml
 
       - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-12'
+        if: matrix.os == 'macos-13'
         uses: actions/upload-artifact@v4
         with:
           name: desktop-macos

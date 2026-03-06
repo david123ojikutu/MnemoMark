@@ -1,0 +1,57 @@
+name: Desktop - Build (macOS only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build (macOS)
+    # Electron 5.0.4 doesn't have darwin-arm64 builds, so we must use an Intel macOS runner.
+    runs-on: macos-13
+
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install deps (skip Electron download; we will inject x64 build)
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Download Electron x64 for macOS (Electron 5.0.4 doesn't support ARM64)
+        working-directory: desktop
+        run: |
+          mkdir -p node_modules/electron/dist
+          curl -L https://github.com/electron/electron/releases/download/v5.0.4/electron-v5.0.4-darwin-x64.zip -o electron.zip
+          unzip -q electron.zip -d node_modules/electron/dist/
+          rm electron.zip
+          echo "5.0.4" > node_modules/electron/path.txt
+          echo "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" >> node_modules/electron/path.txt
+
+      - name: Build installers
+        run: npm run dist -- --publish never
+
+      - name: Upload artifacts (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/latest*.yml
+
