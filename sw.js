@@ -1,20 +1,24 @@
 // Service Worker for MnemoMark PWA
 const CACHE_NAME = 'mnemomark-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/homepage.css',
-  '/auth.css',
-  '/app.css',
-  '/auth-config.js',
-  '/auth-service.js',
-  '/auth-ui.js',
-  '/homepage.js',
-  '/app.js',
-  '/icon128.png',
-  '/icon192.png',
-  '/icon512.png',
-  '/manifest.json'
+  '/MnemoMark/',
+  '/MnemoMark/index.html',
+  '/MnemoMark/css/index.css',
+  '/MnemoMark/css/auth.css',
+  '/MnemoMark/css/tags-and-highlights.css',
+  '/MnemoMark/app.css',
+  '/MnemoMark/js/auth-config.js',
+  '/MnemoMark/js/auth-service.js',
+  '/MnemoMark/js/auth-ui.js',
+  '/MnemoMark/js/index.js',
+  '/MnemoMark/js/tags-and-highlights.js',
+  '/MnemoMark/tags-and-highlights.html',
+  '/MnemoMark/assets/images/grayscale.png',
+  '/MnemoMark/assets/images/logo.png',
+  '/MnemoMark/icon128.png',
+  '/MnemoMark/icon192.png',
+  '/MnemoMark/icon512.png',
+  '/MnemoMark/manifest.json'
 ];
 
 // Install event - cache resources
