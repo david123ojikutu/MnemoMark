@@ -1,0 +1,14 @@
+{
+  "name": "mnemomark-pwa",
+  "version": "1.0.0",
+  "description": "MnemoMark Progressive Web App",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "author": {
+    "name": "MnemoMark",
+    "email": "david123ojikutu@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/david123ojikutu/MnemoMark",
+  "license": "MIT"
+}
