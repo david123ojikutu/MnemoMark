@@ -1,4 +1,4 @@
-name: Desktop - Build (Windows, Linux, macOS)
+name: Desktop - Build (Windows, Linux)
 
 on:
   workflow_dispatch:
@@ -9,14 +9,16 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        # Electron 5.0.4 doesn't have darwin-arm64 builds, so we must use an Intel macOS runner.
-        os: [windows-2022, ubuntu-22.04, macos-13]
+        os: [windows-2022, ubuntu-22.04]
 
     runs-on: ${{ matrix.os }}
 
@@ -37,19 +39,6 @@ jobs:
 
       - name: Install deps
         run: npm ci
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: ${{ matrix.os == 'macos-13' && '1' || '0' }}
-
-      - name: Download Electron x64 for macOS (Electron 5.0.4 doesn't support ARM64)
-        if: matrix.os == 'macos-13'
-        working-directory: desktop
-        run: |
-          mkdir -p node_modules/electron/dist
-          curl -L https://github.com/electron/electron/releases/download/v5.0.4/electron-v5.0.4-darwin-x64.zip -o electron.zip
-          unzip -q electron.zip -d node_modules/electron/dist/
-          rm electron.zip
-          echo "5.0.4" > node_modules/electron/path.txt
-          echo "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" >> node_modules/electron/path.txt
 
       - name: Build installers
         run: npm run dist -- --publish never
@@ -62,8 +51,6 @@ jobs:
           if-no-files-found: error
           path: |
             desktop/dist/*.exe
-            desktop/dist/*.exe.blockmap
-            desktop/dist/latest*.yml
 
       - name: Upload artifacts (Linux)
         if: matrix.os == 'ubuntu-22.04'
@@ -74,24 +61,12 @@ jobs:
           path: |
             desktop/dist/*.AppImage
             desktop/dist/*.deb
-            desktop/dist/latest*.yml
-
-      - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-13'
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-macos
-          if-no-files-found: error
-          path: |
-            desktop/dist/*.dmg
-            desktop/dist/*.zip
-            desktop/dist/latest*.yml
 
   release:
     name: Release (tag)
-    if: startsWith(github.ref, 'refs/tags/')
     needs: [build]
     runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Download all desktop build artifacts
@@ -113,11 +88,12 @@ jobs:
       - name: Prepare installer files
         run: |
           mkdir -p release-files
-          # Copy only installer files, exclude blockmaps and yml files
-          find dist-artifacts -name "*.exe" -not -name "*.blockmap" -exec cp {} release-files/ \;
-          find dist-artifacts -name "*.AppImage" -exec cp {} release-files/ \;
-          find dist-artifacts -name "*.deb" -exec cp {} release-files/ \;
-          ls -la release-files/
+          # Copy only the 3 installer files we need
+          find dist-artifacts -name "*.exe" -type f -exec cp {} release-files/ \;
+          find dist-artifacts -name "*.AppImage" -type f -exec cp {} release-files/ \;
+          find dist-artifacts -name "*.deb" -type f -exec cp {} release-files/ \;
+          echo "Files to upload:"
+          ls -lh release-files/
 
       - name: Create GitHub Release + upload desktop files
         uses: softprops/action-gh-release@v2
@@ -130,12 +106,6 @@ jobs:
             ## Desktop Installers
             - **Windows**: `.exe` installer
             - **Linux**: `.AppImage` and `.deb` packages
-            
-            ## PWA Installers
-            - **Windows**: `.msix` package (if available)
-            - **Android**: `.apk` package (if available)
-            
-            Note: PWA packages will be added automatically once PWA build completes.
           files: |
             release-files/*.exe
             release-files/*.AppImage
