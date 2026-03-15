@@ -99,18 +99,11 @@ jobs:
         with:
           path: dist-artifacts
 
-      - name: Download PWA packages
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          pattern: pwa-packages
-          path: dist-artifacts/pwa
-
       - name: Extract version from tag
         id: tag_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release + upload files
+      - name: Create GitHub Release + upload desktop files
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -122,11 +115,13 @@ jobs:
             - **macOS**: `.dmg` and `.zip` (unsigned)
             
             ## PWA Installers
-            - **Windows**: `.msix` package
-            - **Android**: `.apk` package
+            - **Windows**: `.msix` package (if available)
+            - **Android**: `.apk` package (if available)
+            
+            Note: PWA packages will be added by the release workflow once PWA build completes.
           files: |
             dist-artifacts/**/*.exe
             dist-artifacts/**/*.AppImage
             dist-artifacts/**/*.deb
-            dist-artifacts/**/*.msix
-            dist-artifacts/**/*.apk
+          draft: false
+          prerelease: false

@@ -43,9 +43,16 @@ jobs:
       - name: Generate PWA packages
         run: |
           mkdir -p pwa/packages
-          npx @pwabuilder/pwabuilder --url "https://david123ojikutu.github.io/MnemoMark/" \
+          # Try PWABuilder CLI - if it fails, create a zip of the PWA files instead
+          npx -y @pwabuilder/cli package "https://david123ojikutu.github.io/MnemoMark/" \
             --platform windows --platform android \
-            --out ./pwa/packages || echo "PWA Builder failed (optional step)"
+            --out ./pwa/packages 2>&1 || {
+            echo "PWA Builder CLI failed, creating zip package instead..."
+            cd dist
+            zip -r ../pwa/packages/MnemoMark-PWA.zip . || {
+              echo "Zip creation failed, but continuing..."
+            }
+          }
 
       - name: Upload PWA packages
         uses: actions/upload-artifact@v4
@@ -54,3 +61,17 @@ jobs:
           name: pwa-packages
           path: pwa/packages/
           retention-days: 30
+
+      - name: Update Release with PWA packages (if tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            pwa/packages/**/*.msix
+            pwa/packages/**/*.apk
+            pwa/packages/**/*.zip
+          draft: false
+          prerelease: false
