@@ -94,12 +94,39 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Download all build artifacts
+      - name: Download all desktop build artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist-artifacts
 
+      - name: Download PWA packages
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: pwa-packages
+          path: dist-artifacts/pwa
+
+      - name: Extract version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release + upload files
         uses: softprops/action-gh-release@v2
         with:
-          files: dist-artifacts/**/*
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ steps.tag_version.outputs.VERSION }}
+          body: |
+            ## Desktop Installers
+            - **Windows**: `.exe` installer
+            - **Linux**: `.AppImage` and `.deb` packages
+            - **macOS**: `.dmg` and `.zip` (unsigned)
+            
+            ## PWA Installers
+            - **Windows**: `.msix` package
+            - **Android**: `.apk` package
+          files: |
+            dist-artifacts/**/*.exe
+            dist-artifacts/**/*.AppImage
+            dist-artifacts/**/*.deb
+            dist-artifacts/**/*.msix
+            dist-artifacts/**/*.apk

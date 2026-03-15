@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "MnemoMark Progressive Web App",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "pwa:package": "npx @pwabuilder/pwabuilder --url https://david123ojikutu.github.io/MnemoMark/ --platform windows --platform android --out ./pwa/packages"
   },
   "author": {
     "name": "MnemoMark",

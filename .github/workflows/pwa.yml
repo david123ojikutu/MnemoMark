@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -32,7 +34,23 @@ jobs:
         run: npm run build
 
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+
+      - name: Generate PWA packages
+        run: |
+          mkdir -p pwa/packages
+          npx @pwabuilder/pwabuilder --url "https://david123ojikutu.github.io/MnemoMark/" \
+            --platform windows --platform android \
+            --out ./pwa/packages || echo "PWA Builder failed (optional step)"
+
+      - name: Upload PWA packages
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pwa-packages
+          path: pwa/packages/
+          retention-days: 30
