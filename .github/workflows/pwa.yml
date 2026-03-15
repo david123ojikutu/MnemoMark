@@ -43,19 +43,26 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
 
+      - name: Wait for GitHub Pages deployment (if tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "Waiting for GitHub Pages to be ready..."
+          sleep 30
+
       - name: Generate PWA packages
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           mkdir -p pwa/packages
-          # Try PWABuilder CLI - if it fails, create a zip of the PWA files instead
+          echo "Generating PWA packages from deployed URL..."
+          # Use PWABuilder CLI to generate packages from the deployed PWA
           npx -y @pwabuilder/cli package "https://david123ojikutu.github.io/MnemoMark/" \
             --platform windows --platform android \
             --out ./pwa/packages 2>&1 || {
-            echo "PWA Builder CLI failed, creating zip package instead..."
-            cd dist
-            zip -r ../pwa/packages/MnemoMark-PWA.zip . || {
-              echo "Zip creation failed, but continuing..."
-            }
+            echo "PWA Builder CLI failed. Checking what was generated..."
+            ls -la pwa/packages/ || echo "No packages directory"
           }
+          echo "Generated files:"
+          find pwa/packages -type f || echo "No files found"
 
       - name: Upload PWA packages
         uses: actions/upload-artifact@v4
@@ -92,11 +99,17 @@ jobs:
       - name: Prepare PWA installer files
         run: |
           mkdir -p release-files
-          # Copy only the 2 installer files we need
-          find pwa-artifacts -name "*.msix" -type f -exec cp {} release-files/ \;
-          find pwa-artifacts -name "*.apk" -type f -exec cp {} release-files/ \;
-          echo "Files to upload:"
-          ls -lh release-files/
+          echo "Searching for PWA installer files in pwa-artifacts..."
+          find pwa-artifacts -type f -name "*.msix" -exec cp {} release-files/ \;
+          find pwa-artifacts -type f -name "*.apk" -exec cp {} release-files/ \;
+          echo "Files found to upload:"
+          ls -lh release-files/ || echo "No PWA installer files found!"
+          if [ ! -f release-files/*.msix ] && [ ! -f release-files/*.apk ]; then
+            echo "ERROR: No PWA installer files (.msix or .apk) found!"
+            echo "Contents of pwa-artifacts:"
+            find pwa-artifacts -type f
+            exit 1
+          fi
 
       - name: Update Release with PWA packages
         uses: softprops/action-gh-release@v2
