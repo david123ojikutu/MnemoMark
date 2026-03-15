@@ -72,6 +72,5 @@ jobs:
           files: |
             pwa/packages/**/*.msix
             pwa/packages/**/*.apk
-            pwa/packages/**/*.zip
           draft: false
           prerelease: false

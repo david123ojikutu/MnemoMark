@@ -99,9 +99,25 @@ jobs:
         with:
           path: dist-artifacts
 
+      - name: Extract all artifacts
+        run: |
+          find dist-artifacts -name "*.zip" -type f | while read zipfile; do
+            dir=$(dirname "$zipfile")
+            unzip -q "$zipfile" -d "$dir" && rm "$zipfile"
+          done
+
       - name: Extract version from tag
         id: tag_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Prepare installer files
+        run: |
+          mkdir -p release-files
+          # Copy only installer files, exclude blockmaps and yml files
+          find dist-artifacts -name "*.exe" -not -name "*.blockmap" -exec cp {} release-files/ \;
+          find dist-artifacts -name "*.AppImage" -exec cp {} release-files/ \;
+          find dist-artifacts -name "*.deb" -exec cp {} release-files/ \;
+          ls -la release-files/
 
       - name: Create GitHub Release + upload desktop files
         uses: softprops/action-gh-release@v2
@@ -119,9 +135,6 @@ jobs:
             - **Android**: `.apk` package (if available)
             
             Note: PWA packages will be added by the release workflow once PWA build completes.
-          files: |
-            dist-artifacts/**/*.exe
-            dist-artifacts/**/*.AppImage
-            dist-artifacts/**/*.deb
+          files: release-files/*
           draft: false
           prerelease: false
