@@ -121,6 +121,8 @@ jobs:
 
       - name: Create GitHub Release + upload desktop files
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ steps.tag_version.outputs.VERSION }}
@@ -128,13 +130,16 @@ jobs:
             ## Desktop Installers
             - **Windows**: `.exe` installer
             - **Linux**: `.AppImage` and `.deb` packages
-            - **macOS**: `.dmg` and `.zip` (unsigned)
             
             ## PWA Installers
             - **Windows**: `.msix` package (if available)
             - **Android**: `.apk` package (if available)
             
-            Note: PWA packages will be added by the release workflow once PWA build completes.
-          files: release-files/*
+            Note: PWA packages will be added automatically once PWA build completes.
+          files: |
+            release-files/*.exe
+            release-files/*.AppImage
+            release-files/*.deb
+          generate_release_notes: true
           draft: false
           prerelease: false
