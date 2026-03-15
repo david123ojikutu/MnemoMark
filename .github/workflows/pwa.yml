@@ -12,6 +12,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-deploy:
     name: Build and Deploy PWA
@@ -62,15 +65,52 @@ jobs:
           path: pwa/packages/
           retention-days: 30
 
-      - name: Update Release with PWA packages (if tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    name: Release PWA packages
+    needs: [build-and-deploy]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download PWA packages
+        uses: actions/download-artifact@v4
+        with:
+          name: pwa-packages
+          path: pwa-artifacts
+
+      - name: Extract all artifacts
+        run: |
+          find pwa-artifacts -name "*.zip" -type f | while read zipfile; do
+            dir=$(dirname "$zipfile")
+            unzip -q "$zipfile" -d "$dir" && rm "$zipfile"
+          done
+
+      - name: Extract version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Prepare PWA installer files
+        run: |
+          mkdir -p release-files
+          # Copy only the 2 installer files we need
+          find pwa-artifacts -name "*.msix" -type f -exec cp {} release-files/ \;
+          find pwa-artifacts -name "*.apk" -type f -exec cp {} release-files/ \;
+          echo "Files to upload:"
+          ls -lh release-files/
+
+      - name: Update Release with PWA packages
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
+          body: |
+            ## PWA Installers
+            - **Windows**: `.msix` package
+            - **Android**: `.apk` package
           files: |
-            pwa/packages/**/*.msix
-            pwa/packages/**/*.apk
+            release-files/*.msix
+            release-files/*.apk
+          append_body: true
           draft: false
           prerelease: false
