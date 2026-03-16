@@ -23,43 +23,43 @@ jobs:
       with:
         node-version: 24
         
-    - name: Generate PWA Packages via PWABuilder API
+    - name: Install Android build tools
+      run: |
+        npm install -g @bubblewrap/cli || echo "Bubblewrap CLI install failed"
+        
+    - name: Generate Android APK
       run: |
         mkdir -p pwa-packages
         PWA_URL="https://david123ojikutu.github.io/MnemoMark/"
-        echo "Generating PWA packages from: $PWA_URL"
+        echo "Generating Android APK from: $PWA_URL"
         
-        # Use PWABuilder web API to generate packages
-        echo "Calling PWABuilder API..."
-        
-        # Generate Windows MSIX
-        echo "Generating Windows MSIX package..."
-        curl -X POST "https://pwabuilder-api.azurewebsites.net/msix/generate" \
-          -H "Content-Type: application/json" \
-          -d "{\"url\": \"$PWA_URL\"}" \
-          -o pwa-packages/windows.zip 2>&1 || {
-          echo "MSIX generation failed"
+        # Use Bubblewrap CLI to generate Android APK
+        npx -y @bubblewrap/cli init \
+          --manifest "$PWA_URL/manifest.json" \
+          --directory ./android-build || {
+          echo "Bubblewrap init failed, trying alternative..."
         }
         
-        # Generate Android APK
-        echo "Generating Android APK package..."
-        curl -X POST "https://pwabuilder-api.azurewebsites.net/apk/generate" \
-          -H "Content-Type: application/json" \
-          -d "{\"url\": \"$PWA_URL\"}" \
-          -o pwa-packages/android.zip 2>&1 || {
-          echo "APK generation failed"
-        }
+        # Build APK if init succeeded
+        if [ -d "./android-build" ]; then
+          cd android-build
+          npx @bubblewrap/cli build || echo "Build failed"
+          find . -name "*.apk" -exec cp {} ../pwa-packages/ \; || echo "No APK found"
+          cd ..
+        fi
         
-        # Extract zip files if they exist
-        cd pwa-packages
-        for zip in *.zip; do
-          if [ -f "$zip" ]; then
-            echo "Extracting $zip..."
-            unzip -q "$zip" && rm "$zip" || echo "Failed to extract $zip"
-          fi
-        done
-        cd ..
+    - name: Generate Windows MSIX
+      run: |
+        PWA_URL="https://david123ojikutu.github.io/MnemoMark/"
+        echo "Note: Windows MSIX generation requires manual setup via PWABuilder.com"
+        echo "Visit: https://www.pwabuilder.com/ and enter: $PWA_URL"
+        echo "Download the MSIX package and add it to pwa-packages/"
+        echo "For now, creating placeholder..."
+        touch pwa-packages/README-MSIX.txt
+        echo "Windows MSIX must be generated manually via PWABuilder.com" > pwa-packages/README-MSIX.txt
         
+    - name: List generated files
+      run: |
         echo "Generated files:"
         find pwa-packages -type f || echo "No files found"
           
