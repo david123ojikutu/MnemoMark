@@ -59,24 +59,44 @@ jobs:
           mkdir -p pwa/packages
           echo "Generating PWA packages from deployed URL: https://david123ojikutu.github.io/MnemoMark/"
           
-          # Try PWABuilder CLI
-          echo "Attempting to use PWABuilder CLI..."
-          npx -y @pwabuilder/cli package "https://david123ojikutu.github.io/MnemoMark/" \
-            --platform windows --platform android \
-            --out ./pwa/packages || {
-            echo "PWA Builder CLI failed or not available. Trying alternative approach..."
-            
-            # Alternative: Use PWABuilder web API or create packages manually
-            echo "Checking if packages were created..."
-            ls -la pwa/packages/ || echo "No packages directory found"
+          # Install PWABuilder CLI globally (per friend's suggestion)
+          echo "Installing PWABuilder CLI..."
+          npm install -g @pwabuilder/pwabuilder-cli || {
+            echo "Global install failed, trying npx..."
+            npx -y @pwabuilder/pwabuilder-cli --version || echo "PWABuilder CLI not available"
+          }
+          
+          # Generate packages using correct command syntax (per friend's suggestion)
+          echo "Generating PWA packages with PWABuilder CLI..."
+          pwabuilder package \
+            --url "https://david123ojikutu.github.io/MnemoMark/" \
+            --platforms windows,android \
+            --outputDir ./pwa/packages/ 2>&1 || {
+            echo "PWABuilder CLI failed, trying npx alternative..."
+            npx -y @pwabuilder/pwabuilder-cli package \
+              --url "https://david123ojikutu.github.io/MnemoMark/" \
+              --platforms windows,android \
+              --outputDir ./pwa/packages/ 2>&1 || {
+              echo "All PWABuilder methods failed"
+            }
           }
           
           echo "Checking generated files:"
           find pwa/packages -type f 2>/dev/null || echo "No files found in pwa/packages"
           
-          # List all files in pwa directory
-          echo "All files in pwa directory:"
-          find pwa -type f 2>/dev/null || echo "No pwa directory"
+          # Verify we have the expected files
+          msix_count=$(find pwa/packages -name "*.msix" -type f 2>/dev/null | wc -l)
+          apk_count=$(find pwa/packages -name "*.apk" -type f 2>/dev/null | wc -l)
+          
+          if [ "$msix_count" -gt 0 ] || [ "$apk_count" -gt 0 ]; then
+            echo "PWA packages generated successfully!"
+            echo "Found $msix_count .msix file(s) and $apk_count .apk file(s)"
+            ls -lh pwa/packages/
+          else
+            echo "WARNING: No .msix or .apk files found in pwa/packages/"
+            echo "Contents of pwa/packages:"
+            ls -la pwa/packages/ || echo "Directory is empty"
+          fi
 
       - name: Check if PWA packages exist
         if: startsWith(github.ref, 'refs/tags/v')
