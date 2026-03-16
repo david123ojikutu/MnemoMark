@@ -1,0 +1,66 @@
+name: Build PWA Installers
+
+on:
+  push:
+    tags: ['pwa-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Node 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        
+    - name: Install PWABuilder CLI
+      run: npm install -g @pwabuilder/pwabuilder-cli
+      
+    - name: Generate PWA Packages
+      run: |
+        mkdir -p pwa-packages
+        echo "Generating PWA packages from: https://david123ojikutu.github.io/MnemoMark/"
+        pwabuilder package --url "https://david123ojikutu.github.io/MnemoMark/" \
+          --platforms windows,android \
+          --outputDir ./pwa-packages/ || {
+          echo "PWABuilder CLI failed, trying npx..."
+          npx -y @pwabuilder/pwabuilder-cli package \
+            --url "https://david123ojikutu.github.io/MnemoMark/" \
+            --platforms windows,android \
+            --outputDir ./pwa-packages/
+        }
+        echo "Generated files:"
+        find pwa-packages -type f || echo "No files found"
+          
+    - name: Extract version from tag
+      id: tag_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/pwa-v}" >> $GITHUB_OUTPUT
+
+    - name: Create PWA Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/pwa-v')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: PWA Release ${{ steps.tag_version.outputs.VERSION }}
+        body: |
+          ## PWA Installers
+          - **Windows**: `.msix` package
+          - **Android**: `.apk` package
+        files: |
+          pwa-packages/**/*.msix
+          pwa-packages/**/*.apk
+        generate_release_notes: true
+        draft: false
+        prerelease: false
