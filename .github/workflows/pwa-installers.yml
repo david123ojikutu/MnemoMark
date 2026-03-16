@@ -1,4 +1,4 @@
-name: Build PWA Installers
+name: PWA Store Packages
 
 on:
   push:
@@ -18,50 +18,33 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Setup Node 24
+    - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: 24
         
-    - name: Install Android build tools
-      run: |
-        npm install -g @bubblewrap/cli || echo "Bubblewrap CLI install failed"
-        
-    - name: Generate Android APK
+    - name: Download PWABuilder Packages
       run: |
         mkdir -p pwa-packages
         PWA_URL="https://david123ojikutu.github.io/MnemoMark/"
-        echo "Generating Android APK from: $PWA_URL"
+        echo "Downloading PWA packages from PWABuilder API for: $PWA_URL"
         
-        # Use Bubblewrap CLI to generate Android APK
-        npx -y @bubblewrap/cli init \
-          --manifest "$PWA_URL/manifest.json" \
-          --directory ./android-build || {
-          echo "Bubblewrap init failed, trying alternative..."
+        # Download Windows MSIX via PWABuilder REST API
+        echo "Downloading Windows MSIX..."
+        curl -L -o pwa-packages/MnemoMark-PWA-Windows.msix \
+          "https://www.pwabuilder.com/builds/api/generate?appurl=${PWA_URL}&platform=windows" || {
+          echo "Windows MSIX download failed"
         }
         
-        # Build APK if init succeeded
-        if [ -d "./android-build" ]; then
-          cd android-build
-          npx @bubblewrap/cli build || echo "Build failed"
-          find . -name "*.apk" -exec cp {} ../pwa-packages/ \; || echo "No APK found"
-          cd ..
-        fi
+        # Download Android APK
+        echo "Downloading Android APK..."
+        curl -L -o pwa-packages/MnemoMark-PWA-Android.apk \
+          "https://www.pwabuilder.com/builds/api/generate?appurl=${PWA_URL}&platform=android" || {
+          echo "Android APK download failed"
+        }
         
-    - name: Generate Windows MSIX
-      run: |
-        PWA_URL="https://david123ojikutu.github.io/MnemoMark/"
-        echo "Note: Windows MSIX generation requires manual setup via PWABuilder.com"
-        echo "Visit: https://www.pwabuilder.com/ and enter: $PWA_URL"
-        echo "Download the MSIX package and add it to pwa-packages/"
-        echo "For now, creating placeholder..."
-        touch pwa-packages/README-MSIX.txt
-        echo "Windows MSIX must be generated manually via PWABuilder.com" > pwa-packages/README-MSIX.txt
-        
-    - name: List generated files
-      run: |
-        echo "Generated files:"
-        find pwa-packages -type f || echo "No files found"
+        echo "Downloaded files:"
+        ls -lh pwa-packages/ || echo "No files downloaded"
           
     - name: Extract version from tag
       id: tag_version
@@ -80,8 +63,8 @@ jobs:
           - **Windows**: `.msix` package
           - **Android**: `.apk` package
         files: |
-          pwa-packages/**/*.msix
-          pwa-packages/**/*.apk
+          pwa-packages/*.msix
+          pwa-packages/*.apk
         generate_release_notes: true
         draft: false
         prerelease: false
