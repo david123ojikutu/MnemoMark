@@ -17,6 +17,39 @@
 </head>
 
 <body>
+    <nav id="appMenuBar" class="app-menu-bar" aria-label="Application menu">
+        <div class="app-menu-root">
+            <button type="button" class="app-menu-trigger" id="appMenuFileBtn" aria-expanded="false"
+                aria-haspopup="true">File</button>
+            <div class="app-menu-dropdown" id="appMenuFilePanel" role="menu" hidden>
+                <button type="button" class="app-menu-item" id="menuFileOpen" role="menuitem">Open…<span
+                        class="app-menu-accel">Ctrl+O</span></button>
+                <button type="button" class="app-menu-item" id="menuFilePrint" role="menuitem" disabled>Print…<span
+                        class="app-menu-accel">Ctrl+P</span></button>
+                <div class="app-menu-sep" role="separator"></div>
+                <button type="button" class="app-menu-item" id="menuFileProperties" role="menuitem" disabled>Properties…</button>
+                <div class="app-menu-sep" role="separator"></div>
+                <button type="button" class="app-menu-item" id="menuFileClose" role="menuitem" disabled>Close</button>
+                <button type="button" class="app-menu-item" id="menuFileExit" role="menuitem">Exit</button>
+            </div>
+        </div>
+        <button type="button" class="app-menu-top" id="menuTagsHighlights">Tags and Highlights</button>
+        <div class="app-menu-root">
+            <button type="button" class="app-menu-trigger" id="appMenuViewBtn" aria-expanded="false"
+                aria-haspopup="true">View</button>
+            <div class="app-menu-dropdown" id="appMenuViewPanel" role="menu" hidden>
+                <button type="button" class="app-menu-item" id="menuViewFullscreen" role="menuitem" disabled>Toggle Full
+                    Screen<span class="app-menu-accel">F11</span></button>
+            </div>
+        </div>
+        <div class="app-menu-root">
+            <button type="button" class="app-menu-trigger" id="appMenuHelpBtn" aria-expanded="false"
+                aria-haspopup="true">Help</button>
+            <div class="app-menu-dropdown" id="appMenuHelpPanel" role="menu" hidden>
+                <button type="button" class="app-menu-item" id="menuHelpAbout" role="menuitem">About</button>
+            </div>
+        </div>
+    </nav>
     <div id='leftSeek'>&lang;</div>
     <div id='tabContainer'></div>
     <div id='rightSeek'>&rang;</div>
