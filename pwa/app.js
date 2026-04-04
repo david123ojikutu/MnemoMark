@@ -1,26 +1,32 @@
-// PWA-specific initialization
-if ('serviceWorker' in navigator) {
+// PWA bootstrap: service worker + chrome.storage.local polyfill for shared scripts
+
+(function registerSw() {
+  if (!('serviceWorker' in navigator)) return;
+  const script = document.currentScript;
+  if (!script || !script.src) return;
+  const scriptUrl = new URL(script.src);
+  const swUrl = new URL('sw.js', scriptUrl);
+  const scope = scriptUrl.pathname.replace(/[^/]*$/, '');
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/MnemoMark/sw.js')
+    navigator.serviceWorker
+      .register(swUrl.href, { scope: `${scriptUrl.origin}${scope}` })
       .then((registration) => {
-        console.log('Service Worker registered:', registration);
+        console.log('MnemoMark SW registered:', registration.scope);
       })
       .catch((error) => {
-        console.log('Service Worker registration failed:', error);
+        console.warn('MnemoMark SW registration failed:', error);
       });
   });
-}
+})();
 
-// PWA: Use localStorage instead of chrome.storage for web version
 if (typeof chrome === 'undefined' || !chrome.storage) {
-  // Polyfill chrome.storage.local for web
   window.chrome = window.chrome || {};
   window.chrome.storage = window.chrome.storage || {};
   window.chrome.storage.local = {
     get: (keys, callback) => {
       const result = {};
-      const keysArray = keys === null ? Object.keys(localStorage) : (Array.isArray(keys) ? keys : [keys]);
-      keysArray.forEach(key => {
+      const keysArray = keys === null ? Object.keys(localStorage) : Array.isArray(keys) ? keys : [keys];
+      keysArray.forEach((key) => {
         const value = localStorage.getItem(key);
         if (value !== null) {
           try {
@@ -34,7 +40,7 @@ if (typeof chrome === 'undefined' || !chrome.storage) {
       return Promise.resolve(result);
     },
     set: (items, callback) => {
-      Object.keys(items).forEach(key => {
+      Object.keys(items).forEach((key) => {
         localStorage.setItem(key, JSON.stringify(items[key]));
       });
       if (callback) callback();
@@ -42,7 +48,7 @@ if (typeof chrome === 'undefined' || !chrome.storage) {
     },
     remove: (keys, callback) => {
       const keysArray = Array.isArray(keys) ? keys : [keys];
-      keysArray.forEach(key => localStorage.removeItem(key));
+      keysArray.forEach((key) => localStorage.removeItem(key));
       if (callback) callback();
       return Promise.resolve();
     }
