@@ -1,5 +1,5 @@
-// Authentication and cloud sync using Firebase REST APIs (data-only).
-// Desktop version uses localStorage instead of chrome.storage.
+// PWA auth: Firebase REST (same as desktop) with extension-style sign-in / highlight merge.
+// Tags/highlights stay in mnemomark-tags + lector-highlights:* (web app layout).
 
 let currentUser = null;
 let shareTags = false;
@@ -26,8 +26,8 @@ function getIdToken() {
 
 function setAuthState(user) {
   currentUser = user;
-  shareTags = user ? true : false; // Always sync tags when logged in
-  shareHighlights = user ? true : false; // Highlights are always synced when logged in
+  shareTags = user ? true : false;
+  shareHighlights = user ? true : false;
   window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { user, shareTags, shareHighlights } }));
 }
 
@@ -44,7 +44,6 @@ function scheduleTokenRefresh(expiresAtMs) {
   const refreshInMs = Math.max(expiresAtMs - Date.now() - 60 * 1000, 5 * 1000);
   tokenRefreshTimeout = setTimeout(() => {
     refreshAuthToken().catch(() => {
-      // If refresh fails, force sign out so UI reflects it.
       signOutUser();
     });
   }, refreshInMs);
@@ -85,21 +84,55 @@ function writeLocalTags(tags) {
   localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags || []));
 }
 
-// Returns a map of { filePath -> highlightArray } for all local highlight keys.
-function readAllLocalHighlightsByPath() {
-  const map = {};
+// Extension parity: remote wins on same highlight id; keep local-only rows (not yet on server).
+function mergeRemoteHighlightsIntoLocal(remote, local) {
+  const r = Array.isArray(remote) ? remote : [];
+  const l = Array.isArray(local) ? local : [];
+  const remoteIds = new Set(r.map((h) => (h && h.id != null ? String(h.id) : null)).filter(Boolean));
+  const localOnly = l.filter((h) => h && h.id != null && !remoteIds.has(String(h.id)));
+  return [...r, ...localOnly];
+}
+
+function readFlatHighlightsWithFilePath() {
+  const all = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('lector-highlights:')) {
       const filePath = key.replace('lector-highlights:', '');
       try {
-        map[filePath] = JSON.parse(localStorage.getItem(key) || '[]');
+        const arr = JSON.parse(localStorage.getItem(key) || '[]');
+        arr.forEach((h) => {
+          if (h && typeof h === 'object') {
+            all.push({ ...h, filePath: h.filePath || filePath });
+          }
+        });
       } catch (err) {
-        map[filePath] = [];
+        /* skip */
       }
     }
   }
-  return map;
+  return all;
+}
+
+function writeHighlightsByPathFromFlat(flatArray) {
+  const highlightsByPath = {};
+  (flatArray || []).forEach((h) => {
+    if (!h || typeof h !== 'object') return;
+    const fp = h.filePath != null ? String(h.filePath) : '';
+    if (!fp) return;
+    if (!highlightsByPath[fp]) highlightsByPath[fp] = [];
+    const { filePath: _omit, ...rest } = h;
+    highlightsByPath[fp].push(rest);
+  });
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('lector-highlights:')) keysToRemove.push(key);
+  }
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
+  Object.keys(highlightsByPath).forEach((filePath) => {
+    localStorage.setItem(`lector-highlights:${filePath}`, JSON.stringify(highlightsByPath[filePath]));
+  });
 }
 
 async function refreshAuthToken() {
@@ -268,8 +301,7 @@ async function initAuth() {
           setAuthState(currentUser);
         }
       }
-      // Always sync tags and highlights when logged in
-        setupTagSyncListener();
+      setupTagSyncListener();
       await syncHighlightsFromCloud();
       setupHighlightSyncListener();
     }
@@ -304,7 +336,7 @@ async function signUp(email, password, shareTagsOption) {
       idToken: data.idToken,
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Number(data.expiresIn) * 1000,
-      shareTags: true // Always sync tags
+      shareTags: true
     };
 
     storeAuthState(user);
@@ -313,13 +345,12 @@ async function signUp(email, password, shareTagsOption) {
 
     await firestorePatchDocument(`users/${encodeURIComponent(user.uid)}`, {
       email: toFirestoreValue(user.email),
-      shareTags: toFirestoreValue(true), // Always sync tags
+      shareTags: toFirestoreValue(true),
       createdAt: toFirestoreValue(new Date().toISOString())
     });
 
-    // Always sync tags and highlights when logged in
-      await syncTagsToCloud();
-      setupTagSyncListener();
+    await syncTagsToCloud();
+    setupTagSyncListener();
     await syncHighlightsToCloud();
     setupHighlightSyncListener();
 
@@ -333,40 +364,27 @@ async function signUp(email, password, shareTagsOption) {
   }
 }
 
-// After signing in and pulling cloud data, merge any tags/highlights that existed
-// locally before sign-in so they are not lost. Items are matched by ID —
-// cloud-side entries win on conflict, purely local entries are appended.
-async function mergePreSignInData(preSignInTags, preSignInHighlightsByPath) {
-  // --- Tags ---
+// Extension-style: tags like extension; highlights use flat list + id set (matches extension mergePreSignInData).
+async function mergePreSignInData(preSignInTags, preSignInHighlightsFlat) {
   if (preSignInTags.length > 0) {
-    const cloudTags = readLocalTags(); // local is now cloud data (after syncTagsFromCloud)
-    const cloudTagIds = new Set(cloudTags.map(t => t.id));
-    const uniqueLocalTags = preSignInTags.filter(t => !cloudTagIds.has(t.id));
+    const cloudTags = readLocalTags();
+    const cloudTagIds = new Set(cloudTags.map((t) => t.id));
+    const uniqueLocalTags = preSignInTags.filter((t) => !cloudTagIds.has(t.id));
     if (uniqueLocalTags.length > 0) {
       writeLocalTags([...cloudTags, ...uniqueLocalTags]);
       await syncTagsToCloud();
     }
   }
 
-  // --- Highlights ---
-  let highlightsChanged = false;
-  for (const filePath of Object.keys(preSignInHighlightsByPath)) {
-    const localHighlights = preSignInHighlightsByPath[filePath];
-    if (!localHighlights.length) continue;
-    const key = 'lector-highlights:' + filePath;
-    let cloudHighlights = [];
-    try {
-      cloudHighlights = JSON.parse(localStorage.getItem(key) || '[]');
-    } catch (err) {}
-    const cloudIds = new Set(cloudHighlights.map(h => h.id));
-    const uniqueLocal = localHighlights.filter(h => !cloudIds.has(h.id));
+  if (preSignInHighlightsFlat.length > 0) {
+    const flatAfterSync = readFlatHighlightsWithFilePath();
+    const cloudIds = new Set(flatAfterSync.map((h) => h.id));
+    const uniqueLocal = preSignInHighlightsFlat.filter((h) => !cloudIds.has(h.id));
     if (uniqueLocal.length > 0) {
-      localStorage.setItem(key, JSON.stringify([...cloudHighlights, ...uniqueLocal]));
-      highlightsChanged = true;
+      const merged = [...flatAfterSync, ...uniqueLocal];
+      writeHighlightsByPathFromFlat(merged);
+      await syncHighlightsToCloud();
     }
-  }
-  if (highlightsChanged) {
-    await syncHighlightsToCloud();
   }
 }
 
@@ -375,10 +393,8 @@ async function signIn(email, password) {
   if (!config) return { success: false, error: 'Auth is not configured.' };
 
   try {
-    // Snapshot any data the user created locally before signing in.
-    // We'll merge it into the cloud account after the cloud pull so nothing is lost.
     const preSignInTags = readLocalTags();
-    const preSignInHighlights = readAllLocalHighlightsByPath();
+    const preSignInHighlights = readFlatHighlightsWithFilePath();
 
     const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(config.apiKey)}`, {
       method: 'POST',
@@ -400,20 +416,18 @@ async function signIn(email, password) {
       idToken: data.idToken,
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Number(data.expiresIn) * 1000,
-      shareTags: false
+      shareTags: true
     };
 
     storeAuthState(user);
     setAuthState(user);
     scheduleTokenRefresh(user.expiresAt);
 
-    // Pull cloud data (overwrites local with account's data).
-      await syncTagsFromCloud();
-      setupTagSyncListener();
+    await syncTagsFromCloud();
+    setupTagSyncListener();
     await syncHighlightsFromCloud();
     setupHighlightSyncListener();
 
-    // Merge any pre-signin local data into the now-synced state so it isn't lost.
     await mergePreSignInData(preSignInTags, preSignInHighlights);
 
     return { success: true, user };
@@ -436,10 +450,8 @@ async function signOutUser() {
     clearInterval(highlightSyncIntervalId);
     highlightSyncIntervalId = null;
   }
-  
-  // Clear account data from local storage
+
   localStorage.removeItem(TAGS_STORAGE_KEY);
-  // Clear all highlight keys (they use file path as part of key)
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -447,8 +459,8 @@ async function signOutUser() {
       keysToRemove.push(key);
     }
   }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
-  
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+
   localStorage.removeItem(AUTH_STORAGE_KEY);
   setAuthState(null);
   localStorage.setItem('mnemomark-auth-sync', String(Date.now()));
@@ -465,7 +477,6 @@ async function deleteAccount() {
     return { success: false, error: 'Session expired. Please sign in again.' };
   }
 
-  // Best-effort cleanup of user data in Firestore.
   await firestoreDeleteDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
   await firestoreDeleteDocument(`users/${encodeURIComponent(currentUser.uid)}`);
 
@@ -518,11 +529,10 @@ async function sendPasswordResetEmail(email) {
 async function loadUserSettings() {
   if (!currentUser) return;
 
-  // Always sync tags when logged in, no need to check settings
   shareTags = true;
   currentUser.shareTags = true;
-    storeAuthState(currentUser);
-    setAuthState(currentUser);
+  storeAuthState(currentUser);
+  setAuthState(currentUser);
 }
 
 async function syncTagsToCloud() {
@@ -558,17 +568,15 @@ function setupTagSyncListener() {
 
 async function syncHighlightsToCloud() {
   if (!currentUser) return;
-  
-  // Collect all highlights from localStorage (they're stored per file path)
+
   const allHighlights = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('lector-highlights:')) {
       try {
         const highlights = JSON.parse(localStorage.getItem(key) || '[]');
-        // Add file path to each highlight for reference
         const filePath = key.replace('lector-highlights:', '');
-        highlights.forEach(h => {
+        highlights.forEach((h) => {
           h.filePath = filePath;
         });
         allHighlights.push(...highlights);
@@ -584,35 +592,21 @@ async function syncHighlightsToCloud() {
   });
 }
 
+// Extension-style pull: merge Firestore with flat local aggregate, then fan out to lector-highlights:* .
 async function syncHighlightsFromCloud() {
   if (!currentUser) return;
+  const flatLocal = readFlatHighlightsWithFilePath();
+
   const doc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/highlights`);
+  let merged = flatLocal;
   if (doc && doc.fields && doc.fields.highlights) {
-    const allHighlights = fromFirestoreValue(doc.fields.highlights) || [];
-    
-    // Group highlights by file path and store them
-    const highlightsByPath = {};
-    allHighlights.forEach(h => {
-      const filePath = h.filePath || '';
-      if (!highlightsByPath[filePath]) {
-        highlightsByPath[filePath] = [];
-      }
-      // Remove filePath from highlight object before storing
-      const { filePath: _, ...highlight } = h;
-      highlightsByPath[filePath].push(highlight);
-    });
-    
-    // Store highlights back to localStorage with their file paths
-    Object.keys(highlightsByPath).forEach(filePath => {
-      if (filePath) {
-        localStorage.setItem(`lector-highlights:${filePath}`, JSON.stringify(highlightsByPath[filePath]));
-      }
-    });
-    
-    window.dispatchEvent(new CustomEvent('highlightsSynced', { detail: { highlights: allHighlights } }));
-    return { success: true, highlights: allHighlights };
+    const remoteHighlights = fromFirestoreValue(doc.fields.highlights) || [];
+    merged = mergeRemoteHighlightsIntoLocal(remoteHighlights, flatLocal);
   }
-  return { success: true, highlights: [] };
+
+  writeHighlightsByPathFromFlat(merged);
+  window.dispatchEvent(new CustomEvent('highlightsSynced', { detail: { highlights: merged } }));
+  return { success: true, highlights: merged };
 }
 
 function setupHighlightSyncListener() {
@@ -633,7 +627,6 @@ function isSharingTags() {
 }
 
 async function reconcileShareTags() {
-  // Always sync tags when logged in
   if (currentUser && !shareTags) {
     shareTags = true;
     currentUser.shareTags = true;
