@@ -14,7 +14,8 @@ const filesToCopy = [
   { src: 'pwa/sw.js', dest: 'dist/sw.js' },
   { src: 'pwa/app.js', dest: 'dist/app.js' },
   { src: 'pwa/app.css', dest: 'dist/app.css' },
-  { src: 'pwa/index-web.js', dest: 'dist/js/index.js' } // Web-compatible version
+  { src: 'pwa/index-web.js', dest: 'dist/js/index.js' }, // Web-compatible version
+  { src: 'pwa/auth-service.js', dest: 'dist/js/auth-service.js' } // Extension-style sign-in / highlight merge for PWA
 ];
 
 // Copy desktop app files
@@ -23,7 +24,6 @@ const desktopFiles = [
   { src: 'desktop/src/css/auth.css', dest: 'dist/css/auth.css' },
   { src: 'desktop/src/css/tags-and-highlights.css', dest: 'dist/css/tags-and-highlights.css' },
   { src: 'desktop/src/js/auth-config.js', dest: 'dist/js/auth-config.js' },
-  { src: 'desktop/src/js/auth-service.js', dest: 'dist/js/auth-service.js' },
   { src: 'desktop/src/js/auth-ui.js', dest: 'dist/js/auth-ui.js' },
   { src: 'desktop/src/js/tags-and-highlights.js', dest: 'dist/js/tags-and-highlights.js' },
   { src: 'desktop/src/tags-and-highlights.html', dest: 'dist/tags-and-highlights.html' },
