@@ -895,6 +895,7 @@
                     that._viewerElement.removeAttribute('src');
                     that._highlightManager.reset();
                     that._toggleBackgroundInfo(true);
+                    that._toggleMenuItemsWeb(false);
                     // Clean up object URL when closing last tab
                     const pathName = that._paths[0];
                     if (objectURLs.has(pathName)) {
@@ -1054,6 +1055,7 @@
             if (this._tabs.length === 0) {
                 this._toggleTabContainer(true);
                 this._toggleBackgroundInfo(false);
+                this._toggleMenuItemsWeb(true);
             }
 
             if (this._paths.indexOf(pathName) >= 0) {
@@ -1080,6 +1082,133 @@
 
         _updateTitle(pathName) {
             document.title = "MnemoMark";
+        }
+
+        _closeAllAppMenus() {
+            document.querySelectorAll('#appMenuBar .app-menu-dropdown').forEach((p) => {
+                p.hidden = true;
+            });
+            document.querySelectorAll('#appMenuBar .app-menu-trigger').forEach((b) => {
+                b.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        _toggleMenuItemsWeb(flag) {
+            ['menuFilePrint', 'menuFileProperties', 'menuFileClose', 'menuViewFullscreen'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !flag;
+            });
+        }
+
+        _menuActionPrint() {
+            if (this._viewerElement && this._viewerElement.contentDocument) {
+                const printBtn = this._viewerElement.contentDocument.getElementById('print');
+                if (printBtn) printBtn.dispatchEvent(new Event('click'));
+            }
+        }
+
+        _menuActionProperties() {
+            if (this._viewerElement && this._viewerElement.contentDocument) {
+                const el = this._viewerElement.contentDocument.getElementById('documentProperties');
+                if (el) el.dispatchEvent(new Event('click'));
+            }
+        }
+
+        _menuActionCloseTab() {
+            if (!this._currentTab) return;
+            const closeEl = this._currentTab.getElementsByClassName('file-tab-close')[0];
+            if (closeEl) closeEl.dispatchEvent(new Event('click'));
+        }
+
+        _menuActionFullscreen() {
+            const doc = this._viewerElement && this._viewerElement.contentDocument;
+            if (doc) {
+                const pm = doc.getElementById('presentationMode');
+                if (pm) {
+                    pm.dispatchEvent(new Event('click'));
+                    return;
+                }
+            }
+            if (!document.fullscreenElement) {
+                const req = document.documentElement.requestFullscreen;
+                if (typeof req === 'function') req.call(document.documentElement);
+            } else if (typeof document.exitFullscreen === 'function') {
+                document.exitFullscreen();
+            }
+        }
+
+        _setupAppMenuBar() {
+            const bar = document.getElementById('appMenuBar');
+            if (!bar) return;
+
+            const bindToggle = (btn, panel) => {
+                if (!btn || !panel) return;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const wasOpen = !panel.hidden;
+                    this._closeAllAppMenus();
+                    if (!wasOpen) {
+                        panel.hidden = false;
+                        btn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            };
+
+            bindToggle(document.getElementById('appMenuFileBtn'), document.getElementById('appMenuFilePanel'));
+            bindToggle(document.getElementById('appMenuViewBtn'), document.getElementById('appMenuViewPanel'));
+            bindToggle(document.getElementById('appMenuHelpBtn'), document.getElementById('appMenuHelpPanel'));
+
+            document.addEventListener('click', () => this._closeAllAppMenus());
+
+            const fileInput = document.getElementById('fileInput');
+
+            document.getElementById('menuFileOpen')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                if (fileInput) fileInput.click();
+            });
+
+            document.getElementById('menuFilePrint')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                this._menuActionPrint();
+            });
+
+            document.getElementById('menuFileProperties')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                this._menuActionProperties();
+            });
+
+            document.getElementById('menuFileClose')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                this._menuActionCloseTab();
+            });
+
+            document.getElementById('menuFileExit')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                window.close();
+            });
+
+            document.getElementById('menuTagsHighlights')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                this._openTagsHighlightsTab();
+            });
+
+            document.getElementById('menuViewFullscreen')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                this._menuActionFullscreen();
+            });
+
+            document.getElementById('menuHelpAbout')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeAllAppMenus();
+                window.alert('MnemoMark\n\nA PDF reader for highlights and tags\n\nVersion: 1.1.0\nAuthor: MnemoMark');
+            });
         }
 
         _openFile(fileOrPathName) {
@@ -1112,7 +1241,6 @@
                 });
             }
 
-            // Keyboard shortcut: Ctrl+O or Cmd+O
             document.addEventListener('keydown', (event) => {
                 if ((event.ctrlKey || event.metaKey) && event.key === 'o') {
                     event.preventDefault();
@@ -1120,10 +1248,23 @@
                         fileInput.click();
                     }
                 }
-                // Keyboard shortcut: Ctrl+Shift+T or Cmd+Shift+T for Tags tab
                 if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'T') {
                     event.preventDefault();
                     this._openTagsHighlightsTab();
+                }
+                if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
+                    const printBtn = document.getElementById('menuFilePrint');
+                    if (printBtn && !printBtn.disabled) {
+                        event.preventDefault();
+                        this._menuActionPrint();
+                    }
+                }
+                if (event.key === 'F11') {
+                    const fsBtn = document.getElementById('menuViewFullscreen');
+                    if (fsBtn && !fsBtn.disabled) {
+                        event.preventDefault();
+                        this._menuActionFullscreen();
+                    }
                 }
             });
         }
@@ -1158,6 +1299,7 @@
         }
 
         run() {
+            this._setupAppMenuBar();
             this._setMenuItemEvents();
             this._setSeekEvents();
             this._setViewerEvents();
