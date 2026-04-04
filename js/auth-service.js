@@ -20,6 +20,16 @@ function getAuthConfig() {
   return config;
 }
 
+async function fetchWithTimeout(url, options, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 function getIdToken() {
   return currentUser ? currentUser.idToken : null;
 }
@@ -139,7 +149,7 @@ async function refreshAuthToken() {
   const config = getAuthConfig();
   if (!config || !currentUser || !currentUser.refreshToken) return false;
 
-  const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(config.apiKey)}`, {
+  const response = await fetchWithTimeout(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(config.apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(currentUser.refreshToken)}`
@@ -292,18 +302,25 @@ async function initAuth() {
     scheduleTokenRefresh(currentUser ? currentUser.expiresAt : null);
     if (currentUser) {
       await loadUserSettings();
-      if (!shareTags) {
-        const tagsDoc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
-        if (tagsDoc && tagsDoc.fields && tagsDoc.fields.tags) {
-          shareTags = true;
-          currentUser.shareTags = true;
-          storeAuthState(currentUser);
-          setAuthState(currentUser);
+      void (async () => {
+        try {
+          if (!shareTags) {
+            const tagsDoc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
+            if (tagsDoc && tagsDoc.fields && tagsDoc.fields.tags) {
+              shareTags = true;
+              currentUser.shareTags = true;
+              storeAuthState(currentUser);
+              setAuthState(currentUser);
+            }
+          }
+          await syncHighlightsFromCloud();
+        } catch (err) {
+          console.error('MnemoMark: initAuth cloud sync failed', err);
+        } finally {
+          setupTagSyncListener();
+          setupHighlightSyncListener();
         }
-      }
-      setupTagSyncListener();
-      await syncHighlightsFromCloud();
-      setupHighlightSyncListener();
+      })();
     }
   } else {
     setAuthState(null);
@@ -316,7 +333,7 @@ async function signUp(email, password, shareTagsOption) {
   if (!config) return { success: false, error: 'Auth is not configured.' };
 
   try {
-    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(config.apiKey)}`, {
+    const response = await fetchWithTimeout(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(config.apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, returnSecureToken: true })
@@ -396,7 +413,7 @@ async function signIn(email, password) {
     const preSignInTags = readLocalTags();
     const preSignInHighlights = readFlatHighlightsWithFilePath();
 
-    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(config.apiKey)}`, {
+    const response = await fetchWithTimeout(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(config.apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, returnSecureToken: true })
@@ -480,7 +497,7 @@ async function deleteAccount() {
   await firestoreDeleteDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
   await firestoreDeleteDocument(`users/${encodeURIComponent(currentUser.uid)}`);
 
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${encodeURIComponent(config.apiKey)}`, {
+  const response = await fetchWithTimeout(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${encodeURIComponent(config.apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken: currentUser.idToken })
@@ -503,7 +520,7 @@ async function sendPasswordResetEmail(email) {
   if (!config) return { success: false, error: 'Auth is not configured.' };
 
   try {
-    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(config.apiKey)}`, {
+    const response = await fetchWithTimeout(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(config.apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })

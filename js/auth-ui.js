@@ -1,4 +1,4 @@
-// Authentication UI handlers for desktop app (mirrors extension flow)
+// Authentication UI for MnemoMark PWA (do not use desktop copy in build)
 
 function setupAuthUI() {
   const authModal = document.getElementById('authModal');
@@ -6,7 +6,6 @@ function setupAuthUI() {
   const signInForm = document.getElementById('signInForm');
   const signUpForm = document.getElementById('signUpForm');
 
-  // Buttons
   const closeAuthModalBtn = document.getElementById('closeAuthModal');
   const signInBtn = document.getElementById('signInBtn');
   const signUpBtn = document.getElementById('signUpBtn');
@@ -16,7 +15,7 @@ function setupAuthUI() {
   const sendResetEmailBtn = document.getElementById('sendResetEmailBtn');
   const backToSignInBtn = document.getElementById('backToSignInBtn');
 
-  if (switchToSignUpBtn) {
+  if (switchToSignUpBtn && signInForm && signUpForm) {
     switchToSignUpBtn.addEventListener('click', () => {
       signInForm.style.display = 'none';
       signUpForm.style.display = 'block';
@@ -25,7 +24,7 @@ function setupAuthUI() {
     });
   }
 
-  if (switchToSignInBtn) {
+  if (switchToSignInBtn && signInForm && signUpForm) {
     switchToSignInBtn.addEventListener('click', () => {
       signUpForm.style.display = 'none';
       signInForm.style.display = 'block';
@@ -34,14 +33,14 @@ function setupAuthUI() {
     });
   }
 
-  if (closeAuthModalBtn) {
+  if (closeAuthModalBtn && authModal) {
     closeAuthModalBtn.addEventListener('click', () => {
       authModal.classList.remove('show');
       hideError();
     });
   }
 
-  if (forgotPasswordBtn) {
+  if (forgotPasswordBtn && signInForm && signUpForm) {
     forgotPasswordBtn.addEventListener('click', () => {
       signInForm.style.display = 'none';
       signUpForm.style.display = 'none';
@@ -54,7 +53,7 @@ function setupAuthUI() {
     });
   }
 
-  if (backToSignInBtn) {
+  if (backToSignInBtn && signInForm && signUpForm) {
     backToSignInBtn.addEventListener('click', () => {
       const forgotPasswordForm = document.getElementById('forgotPasswordForm');
       if (forgotPasswordForm) {
@@ -86,7 +85,7 @@ function setupAuthUI() {
           if (forgotPasswordForm) {
             forgotPasswordForm.style.display = 'none';
           }
-          signInForm.style.display = 'block';
+          if (signInForm) signInForm.style.display = 'block';
           authModalTitle.textContent = 'Sign In';
           document.getElementById('forgotPasswordEmail').value = '';
           hideError();
@@ -100,7 +99,7 @@ function setupAuthUI() {
     });
   }
 
-  if (signInBtn) {
+  if (signInBtn && authModal) {
     signInBtn.addEventListener('click', async () => {
       const email = document.getElementById('signInEmail').value.trim();
       const password = document.getElementById('signInPassword').value;
@@ -111,28 +110,30 @@ function setupAuthUI() {
 
       signInBtn.disabled = true;
       signInBtn.textContent = 'Signing in...';
-      const result = await window.authService.signIn(email, password);
+      try {
+        const result = await window.authService.signIn(email, password);
 
-      if (result.success) {
-        authModal.classList.remove('show');
-        updateAuthUI();
-        document.getElementById('signInEmail').value = '';
-        document.getElementById('signInPassword').value = '';
-      } else {
-        showError(result.error || 'Sign in failed. Please try again.');
+        if (result.success) {
+          authModal.classList.remove('show');
+          updateAuthUI();
+          document.getElementById('signInEmail').value = '';
+          document.getElementById('signInPassword').value = '';
+        } else {
+          showError(result.error || 'Sign in failed. Please try again.');
+        }
+      } finally {
+        signInBtn.disabled = false;
+        signInBtn.textContent = 'Sign In';
       }
-
-      signInBtn.disabled = false;
-      signInBtn.textContent = 'Sign In';
     });
   }
 
-  if (signUpBtn) {
+  if (signUpBtn && authModal) {
     signUpBtn.addEventListener('click', async () => {
       const email = document.getElementById('signUpEmail').value.trim();
       const password = document.getElementById('signUpPassword').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
-      const shareTagsOption = true; // Always sync tags when logged in
+      const shareTagsOption = true;
 
       if (!email || !password || !confirmPassword) {
         showError('Please fill in all fields');
@@ -149,20 +150,22 @@ function setupAuthUI() {
 
       signUpBtn.disabled = true;
       signUpBtn.textContent = 'Creating account...';
-      const result = await window.authService.signUp(email, password, shareTagsOption);
+      try {
+        const result = await window.authService.signUp(email, password, shareTagsOption);
 
-      if (result.success) {
-        authModal.classList.remove('show');
-        updateAuthUI();
-        document.getElementById('signUpEmail').value = '';
-        document.getElementById('signUpPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-      } else {
-        showError(result.error || 'Account creation failed. Please try again.');
+        if (result.success) {
+          authModal.classList.remove('show');
+          updateAuthUI();
+          document.getElementById('signUpEmail').value = '';
+          document.getElementById('signUpPassword').value = '';
+          document.getElementById('confirmPassword').value = '';
+        } else {
+          showError(result.error || 'Account creation failed. Please try again.');
+        }
+      } finally {
+        signUpBtn.disabled = false;
+        signUpBtn.textContent = 'Create Account';
       }
-
-      signUpBtn.disabled = false;
-      signUpBtn.textContent = 'Create Account';
     });
   }
 
@@ -224,7 +227,7 @@ function showAuthModal() {
 
 function updateAuthUI() {
   const user = window.authService.getCurrentUser();
-  const sharing = user ? true : false; // Always synced when logged in
+  const sharing = user ? true : false;
   let userInfo = document.getElementById('userInfo');
 
   if (user) {
@@ -238,9 +241,9 @@ function updateAuthUI() {
       }
     }
 
-    const signInBtn = document.getElementById('showSignInBtn');
-    if (signInBtn) {
-      signInBtn.remove();
+    const entrySignIn = document.getElementById('showSignInBtn');
+    if (entrySignIn) {
+      entrySignIn.remove();
     }
 
     if (userInfo) {
@@ -258,7 +261,12 @@ function updateAuthUI() {
       }
     }
 
-    if (window.authService && typeof window.authService.reconcileShareTags === 'function') {
+    if (
+      window.authService &&
+      typeof window.authService.reconcileShareTags === 'function' &&
+      typeof window.authService.isSharingTags === 'function' &&
+      !window.authService.isSharingTags()
+    ) {
       window.authService.reconcileShareTags().then(() => {
         updateAuthUI();
       });
@@ -319,11 +327,9 @@ window.addEventListener('tagsSynced', () => {
 });
 
 window.addEventListener('highlightsSynced', () => {
-  // Trigger highlight re-render in the PDF viewer
   if (window.highlightManager && typeof window.highlightManager._scheduleRenderAllHighlights === 'function') {
     window.highlightManager._scheduleRenderAllHighlights();
   }
-  // Also reload highlights in tags-and-highlights.html if it's open
   if (window.loadAllHighlights && typeof window.loadAllHighlights === 'function') {
     window.loadAllHighlights();
   }
