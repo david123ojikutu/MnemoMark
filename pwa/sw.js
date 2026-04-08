@@ -1,7 +1,7 @@
 // MnemoMark PWA service worker — scope-relative precache; cross-origin passthrough;
 // network-first for same-origin JS so auth code updates are not stuck on stale cache.
 
-const CACHE_NAME = 'mnemomark-v5';
+const CACHE_NAME = 'mnemomark-v6';
 
 function scopeBasePath() {
   const path = new URL(self.registration.scope).pathname;
