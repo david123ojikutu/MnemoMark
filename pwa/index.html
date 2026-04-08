@@ -92,8 +92,19 @@
                 <label class="highlight-modal-label">Tags (optional):</label>
                 <div id="highlightTagCheckboxes" class="highlight-tag-checkboxes"></div>
                 <label class="highlight-modal-label" for="highlightNoteInput">Note (optional):</label>
-                <textarea id="highlightNoteInput" class="highlight-note-input" rows="3"
-                    placeholder="Add a note about this highlight..."></textarea>
+                <div class="rt-wrap" data-rt="highlightNoteInput">
+                    <div class="rt-toolbar" role="toolbar" aria-label="Note formatting">
+                        <button type="button" class="rt-btn" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+                        <button type="button" class="rt-btn" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+                        <button type="button" class="rt-btn" data-cmd="underline" aria-label="Underline"><span style="text-decoration: underline;">U</span></button>
+                        <button type="button" class="rt-btn" data-cmd="strikeThrough" aria-label="Strikethrough"><span style="text-decoration: line-through;">S</span></button>
+                        <span class="rt-sep" aria-hidden="true"></span>
+                        <button type="button" class="rt-btn" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+                        <button type="button" class="rt-btn" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+                    </div>
+                    <div id="highlightNoteInput" class="rt-editor highlight-note-input" contenteditable="true" role="textbox" aria-multiline="true"
+                        data-placeholder="Add a note about this highlight..."></div>
+                </div>
             </div>
             <div class="highlight-modal-actions">
                 <button id="highlightModalDelete" class="highlight-btn highlight-btn-danger" style="display: none;">Delete</button>

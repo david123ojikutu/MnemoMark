@@ -1,4 +1,5 @@
 // Background service worker for the highlighting extension
+importScripts('auth-config.js', 'auth-service.js');
 
 // Track tabs to prevent forgetting them
 let trackedTabs = new Set();
@@ -92,7 +93,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   } else if (request.action === 'updateHighlight') {
-    updateHighlight(request.highlightId, request.tags, request.note).then(() => {
+    updateHighlight(request.highlightId, request.tags, request.note, request.noteHtml).then(() => {
       sendResponse({ success: true });
     }).catch(err => {
       sendResponse({ success: false, error: err.message });
@@ -117,15 +118,16 @@ async function saveHighlight(data) {
     text: data.text,
     tags: data.tags || [],
     note: data.note || '',
+    noteHtml: data.noteHtml || '',
     timestamp: Date.now(),
     xpath: data.xpath || '',
     isPdf: data.isPdf || false
   });
   await chrome.storage.local.set({ highlights });
   
-  // Sync to cloud if logged in
-  if (window.authService && window.authService.getCurrentUser()) {
-    window.authService.syncHighlightsToCloud().catch(err => {
+  // Sync to cloud if logged in (auth runs in this worker via importScripts)
+  if (globalThis.authService) {
+    globalThis.authService.syncHighlightsToCloud().catch(err => {
       console.error('Error syncing highlights to cloud:', err);
     });
   }
@@ -143,15 +145,14 @@ async function deleteHighlight(id) {
   const filtered = highlights.filter(h => h.id !== id);
   await chrome.storage.local.set({ highlights: filtered });
   
-  // Sync to cloud if logged in
-  if (window.authService && window.authService.getCurrentUser()) {
-    window.authService.syncHighlightsToCloud().catch(err => {
+  if (globalThis.authService) {
+    globalThis.authService.syncHighlightsToCloud().catch(err => {
       console.error('Error syncing highlights to cloud:', err);
     });
   }
 }
 
-async function updateHighlight(highlightId, tags, note) {
+async function updateHighlight(highlightId, tags, note, noteHtml) {
   const result = await chrome.storage.local.get(['highlights']);
   const highlights = result.highlights || [];
   const highlightIndex = highlights.findIndex(h => h.id === highlightId);
@@ -162,12 +163,12 @@ async function updateHighlight(highlightId, tags, note) {
   
   highlights[highlightIndex].tags = tags || [];
   highlights[highlightIndex].note = note || '';
+  highlights[highlightIndex].noteHtml = noteHtml || '';
   
   await chrome.storage.local.set({ highlights });
   
-  // Sync to cloud if logged in
-  if (window.authService && window.authService.getCurrentUser()) {
-    window.authService.syncHighlightsToCloud().catch(err => {
+  if (globalThis.authService) {
+    globalThis.authService.syncHighlightsToCloud().catch(err => {
       console.error('Error syncing highlights to cloud:', err);
     });
   }

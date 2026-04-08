@@ -837,10 +837,10 @@
          */
         _getTitleBar() {
             try {
-                return new customTitlebar.Titlebar({
-                    backgroundColor: customTitlebar.Color.fromHex('#333'),
-                    icon: 'assets/images/logo.png'
-                });
+            return new customTitlebar.Titlebar({
+                backgroundColor: customTitlebar.Color.fromHex('#333'),
+                icon: 'assets/images/logo.png'
+            });
             } catch (e) {
                 console.error('Titlebar init failed:', e);
                 return null;
@@ -1248,7 +1248,7 @@
          */
         _updateTitle(pathName) {
             if (this._titleBar) {
-                this._titleBar.updateTitle("MnemoMark");
+            this._titleBar.updateTitle("MnemoMark");
             }
         }
 
@@ -1419,8 +1419,8 @@
     // This fixes the issue where buttons don't respond on first launch
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            const application = new Reader();
-            application.run();
+    const application = new Reader();
+    application.run();
         });
     } else {
         // DOM already ready, but add a small delay to ensure titlebar is initialized

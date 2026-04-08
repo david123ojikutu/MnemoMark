@@ -561,6 +561,75 @@ body.not-fullscreen #highlightsTab .section-header {
   line-height: 1.5;
 }
 
+.rt-wrap {
+  width: 100%;
+}
+
+.rt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #333;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: #2a2a2a;
+}
+
+.rt-btn {
+  border: 1px solid #444;
+  background: #1e1e1e;
+  color: #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+  -webkit-app-region: no-drag;
+}
+
+.rt-btn:hover {
+  background: #252525;
+}
+
+.rt-sep {
+  width: 1px;
+  background: #444;
+  margin: 0 4px;
+}
+
+.rt-editor {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid #333;
+  border-radius: 0 0 8px 8px;
+  background: #1e1e1e;
+  color: #e0e0e0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  -webkit-app-region: no-drag;
+}
+
+.rt-editor:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+}
+
+.rt-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #888;
+}
+
+.rt-editor ul,
+.rt-editor ol {
+  margin-left: 18px;
+}
+
 .highlight-meta {
   display: flex;
   flex-direction: column;

@@ -35,7 +35,18 @@
         <div id="tagCheckboxes" class="tag-checkboxes"></div>
         <div class="form-group" style="margin-top: 16px;">
           <label for="highlightNote">Note (optional):</label>
-          <textarea id="highlightNote" placeholder="Add a note about this highlight..." rows="3" style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+          <div class="rt-wrap" data-rt="highlightNote">
+            <div class="rt-toolbar" role="toolbar" aria-label="Note formatting">
+              <button type="button" class="rt-btn" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+              <button type="button" class="rt-btn" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+              <button type="button" class="rt-btn" data-cmd="underline" aria-label="Underline"><span style="text-decoration: underline;">U</span></button>
+              <button type="button" class="rt-btn" data-cmd="strikeThrough" aria-label="Strikethrough"><span style="text-decoration: line-through;">S</span></button>
+              <span class="rt-sep" aria-hidden="true"></span>
+              <button type="button" class="rt-btn" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+              <button type="button" class="rt-btn" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+            </div>
+            <div id="highlightNoteEditor" class="rt-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Add a note about this highlight..."></div>
+          </div>
         </div>
         <button id="applyTagsBtn" class="btn btn-primary btn-small">Apply Tags & Highlight</button>
       </div>
@@ -110,7 +121,18 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="noteText">Note:</label>
-          <textarea id="noteText" placeholder="Enter your note..." rows="5" style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+          <div class="rt-wrap" data-rt="noteText">
+            <div class="rt-toolbar" role="toolbar" aria-label="Note formatting">
+              <button type="button" class="rt-btn" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+              <button type="button" class="rt-btn" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+              <button type="button" class="rt-btn" data-cmd="underline" aria-label="Underline"><span style="text-decoration: underline;">U</span></button>
+              <button type="button" class="rt-btn" data-cmd="strikeThrough" aria-label="Strikethrough"><span style="text-decoration: line-through;">S</span></button>
+              <span class="rt-sep" aria-hidden="true"></span>
+              <button type="button" class="rt-btn" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+              <button type="button" class="rt-btn" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+            </div>
+            <div id="noteTextEditor" class="rt-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Enter your note..."></div>
+          </div>
         </div>
         <div class="form-actions">
           <button id="saveNoteBtn" class="btn btn-primary">Save Note</button>
@@ -150,53 +172,53 @@
       <div class="modal-body">
         <div id="authError" class="auth-error" style="display: none;"></div>
         
-        <div id="signInForm">
+        <form id="signInForm" method="post" action="#" autocomplete="on">
           <div class="form-group">
             <label for="signInEmail">Email:</label>
-            <input type="email" id="signInEmail" placeholder="your@email.com" required>
+            <input type="email" id="signInEmail" name="email" autocomplete="username" placeholder="your@email.com" required>
           </div>
           <div class="form-group">
             <label for="signInPassword">Password:</label>
-            <input type="password" id="signInPassword" placeholder="Enter your password" required>
+            <input type="password" id="signInPassword" name="password" autocomplete="current-password" placeholder="Enter your password" required>
           </div>
           <div class="form-group" style="margin-top: -10px; margin-bottom: 10px;">
             <button type="button" id="forgotPasswordBtn" class="btn-forgot-password">Forgot Password?</button>
           </div>
           <div class="form-actions">
-            <button id="signInBtn" class="btn btn-primary">Sign In</button>
-            <button id="switchToSignUpBtn" class="btn btn-secondary">Create Account</button>
+            <button type="submit" id="signInBtn" class="btn btn-primary">Sign In</button>
+            <button type="button" id="switchToSignUpBtn" class="btn btn-secondary">Create Account</button>
           </div>
-        </div>
+        </form>
 
-        <div id="signUpForm" style="display: none;">
+        <form id="signUpForm" method="post" action="#" autocomplete="on" style="display: none;">
           <div class="form-group">
             <label for="signUpEmail">Email:</label>
-            <input type="email" id="signUpEmail" placeholder="your@email.com" required>
+            <input type="email" id="signUpEmail" name="email" autocomplete="username" placeholder="your@email.com" required>
           </div>
           <div class="form-group">
             <label for="signUpPassword">Password:</label>
-            <input type="password" id="signUpPassword" placeholder="Choose a password" required>
+            <input type="password" id="signUpPassword" name="password" autocomplete="new-password" placeholder="Choose a password" required>
           </div>
           <div class="form-group">
             <label for="confirmPassword">Confirm Password:</label>
-            <input type="password" id="confirmPassword" placeholder="Confirm password" required>
+            <input type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" placeholder="Confirm password" required>
           </div>
           <div class="form-actions">
-            <button id="signUpBtn" class="btn btn-primary">Create Account</button>
-            <button id="switchToSignInBtn" class="btn btn-secondary">Already have an account?</button>
+            <button type="submit" id="signUpBtn" class="btn btn-primary">Create Account</button>
+            <button type="button" id="switchToSignInBtn" class="btn btn-secondary">Already have an account?</button>
           </div>
-        </div>
+        </form>
 
-        <div id="forgotPasswordForm" style="display: none;">
+        <form id="forgotPasswordForm" method="post" action="#" autocomplete="on" style="display: none;">
           <div class="form-group">
             <label for="forgotPasswordEmail">Email:</label>
-            <input type="email" id="forgotPasswordEmail" placeholder="your@email.com" required>
+            <input type="email" id="forgotPasswordEmail" name="email" autocomplete="username" placeholder="your@email.com" required>
           </div>
           <div class="form-actions">
-            <button id="sendResetEmailBtn" class="btn btn-primary">Send Reset Email</button>
-            <button id="backToSignInBtn" class="btn btn-secondary">Back to Sign In</button>
+            <button type="submit" id="sendResetEmailBtn" class="btn btn-primary">Send Reset Email</button>
+            <button type="button" id="backToSignInBtn" class="btn btn-secondary">Back to Sign In</button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   </div>

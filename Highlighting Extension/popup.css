@@ -393,6 +393,72 @@ h3 {
   color: #555;
 }
 
+.rt-wrap {
+  width: 100%;
+}
+
+.rt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid #e0e0e0;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: #fafafa;
+}
+
+.rt-btn {
+  border: 1px solid #ddd;
+  background: white;
+  color: #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.rt-btn:hover {
+  background: #f5f5f5;
+}
+
+.rt-sep {
+  width: 1px;
+  background: #e0e0e0;
+  margin: 0 4px;
+}
+
+.rt-editor {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0 0 6px 6px;
+  background: white;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.rt-editor:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.rt-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #999;
+}
+
+.rt-editor ul,
+.rt-editor ol {
+  margin-left: 18px;
+}
+
 .tag-checkboxes {
   display: flex;
   flex-direction: column;
@@ -403,5 +469,194 @@ h3 {
   padding: 8px;
   background: white;
   border-radius: 4px;
+}
+
+/* Hierarchical tag picker (add tags to highlight modal) */
+.tag-picker-modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 360px;
+  width: 92%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.tag-picker-title {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  color: #333;
+}
+
+.tag-picker-hint {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.tag-picker-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tag-picker-bc {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin: 0;
+  cursor: pointer;
+  color: #1976d2;
+  font: inherit;
+  border-radius: 4px;
+  max-width: 100%;
+  text-align: left;
+}
+
+.tag-picker-bc:hover {
+  text-decoration: underline;
+  background: rgba(25, 118, 210, 0.08);
+}
+
+.tag-picker-bc.is-current {
+  color: #333;
+  font-weight: 600;
+  cursor: default;
+  text-decoration: none;
+}
+
+.tag-picker-bc.is-current:hover {
+  background: transparent;
+}
+
+.tag-picker-bc-sep {
+  color: #999;
+  margin: 0 4px;
+  user-select: none;
+}
+
+.tag-picker-list {
+  flex: 1;
+  min-height: 100px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.tag-picker-empty {
+  margin: 0;
+  padding: 16px 12px;
+  color: #888;
+  font-size: 13px;
+  text-align: center;
+}
+
+.tag-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tag-picker-row:last-child {
+  border-bottom: none;
+}
+
+.tag-picker-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-picker-cb {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tag-picker-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.tag-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.tag-picker-drill {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  color: #555;
+}
+
+.tag-picker-drill:hover {
+  background: #e3f2fd;
+  border-color: #90caf9;
+  color: #1976d2;
+}
+
+.tag-picker-drill-spacer {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.tag-picker-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tag-picker-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tag-picker-btn-secondary {
+  border: 1px solid #ddd;
+  background: white;
+  color: #333;
+}
+
+.tag-picker-btn-primary {
+  border: none;
+  background: #4caf50;
+  color: white;
+}
+
+.tag-picker-btn-primary:hover {
+  background: #43a047;
 }
 

@@ -4,6 +4,77 @@ let tags = [];
 let currentEditingTagId = null;
 let highlights = [];
 
+function sanitizeRichTextHtml(inputHtml) {
+  if (!inputHtml || typeof inputHtml !== 'string') return '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(inputHtml, 'text/html');
+  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI']);
+
+  function clean(node) {
+    const children = Array.from(node.childNodes);
+    children.forEach((child) => {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child;
+        const tagName = el.tagName;
+        if (!allowedTags.has(tagName)) {
+          // Replace disallowed element with its children
+          const frag = doc.createDocumentFragment();
+          while (el.firstChild) frag.appendChild(el.firstChild);
+          el.replaceWith(frag);
+          return;
+        }
+        // Remove all attributes (prevents style/on* injection)
+        Array.from(el.attributes).forEach((attr) => el.removeAttribute(attr.name));
+        clean(el);
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove();
+      }
+    });
+  }
+
+  clean(doc.body);
+  const cleaned = doc.body.innerHTML.trim();
+  // Normalize empty-ish values
+  return cleaned === '<br>' ? '' : cleaned;
+}
+
+function initRichTextToolbar(wrapper) {
+  if (!wrapper) return;
+  const editor = wrapper.querySelector('.rt-editor');
+  const toolbar = wrapper.querySelector('.rt-toolbar');
+  if (!editor || !toolbar) return;
+
+  toolbar.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('.rt-btn') : null;
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.getAttribute('data-cmd');
+    if (!cmd) return;
+    editor.focus();
+    // execCommand is deprecated but still works in Chromium and keeps this dependency-free.
+    try {
+      document.execCommand(cmd, false, null);
+    } catch (_) {}
+  });
+}
+
+function getRichTextValue(editorId) {
+  const editor = document.getElementById(editorId);
+  if (!editor) return { text: '', html: '' };
+  const html = sanitizeRichTextHtml(editor.innerHTML || '');
+  const text = (editor.innerText || '').trim();
+  return { text, html };
+}
+
+function setRichTextValue(editorId, htmlOrText) {
+  const editor = document.getElementById(editorId);
+  if (!editor) return;
+  const value = htmlOrText || '';
+  // If we already have HTML, keep it; otherwise treat as plain text.
+  const looksLikeHtml = typeof value === 'string' && /<\/?[a-z][\s\S]*>/i.test(value);
+  editor.innerHTML = looksLikeHtml ? sanitizeRichTextHtml(value) : sanitizeRichTextHtml(escapeHtml(value).replace(/\n/g, '<br>'));
+}
+
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
   loadTags().then(() => {
@@ -11,6 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
     checkSelectedText();
   });
   setupEventListeners();
+
+  // Rich text toolbars
+  initRichTextToolbar(document.querySelector('.rt-wrap[data-rt="highlightNote"]'));
+  initRichTextToolbar(document.querySelector('.rt-wrap[data-rt="noteText"]'));
 });
 
 function setupEventListeners() {
@@ -115,24 +190,23 @@ function getTagParents(tagId) {
 }
 
 // Helper function to recursively get all parent tags (including grandparents, etc.)
-function getAllParentTags(tagId, visited = new Set()) {
+function getAllParentTags(tagId, tagsList = tags, visited = new Set()) {
   if (visited.has(tagId)) {
     return []; // Prevent infinite loops in case of circular references
   }
   visited.add(tagId);
   
-  const tag = tags.find(t => t.id === tagId);
+  const tag = tagsList.find(t => t.id === tagId);
   if (!tag || !tag.parentIds || tag.parentIds.length === 0) {
     return [];
   }
   
   const parentTags = [];
   tag.parentIds.forEach(parentId => {
-    const parentTag = tags.find(t => t.id === parentId);
+    const parentTag = tagsList.find(t => t.id === parentId);
     if (parentTag) {
       parentTags.push(parentTag.id);
-      // Recursively get grandparents, etc.
-      const grandparentTags = getAllParentTags(parentId, visited);
+      const grandparentTags = getAllParentTags(parentId, tagsList, visited);
       parentTags.push(...grandparentTags);
     }
   });
@@ -141,7 +215,7 @@ function getAllParentTags(tagId, visited = new Set()) {
 }
 
 // Helper function to expand tag IDs to include all parent tags
-function expandTagsWithParents(tagIds) {
+function expandTagsWithParents(tagIds, tagsList = tags) {
   if (!tagIds || tagIds.length === 0) {
     return [];
   }
@@ -149,11 +223,27 @@ function expandTagsWithParents(tagIds) {
   const expandedTagIds = new Set(tagIds);
   
   tagIds.forEach(tagId => {
-    const parentTagIds = getAllParentTags(tagId);
+    const parentTagIds = getAllParentTags(tagId, tagsList);
     parentTagIds.forEach(parentId => expandedTagIds.add(parentId));
   });
   
   return Array.from(expandedTagIds);
+}
+
+function getRootTagsForPicker(tagsList) {
+  return tagsList
+    .filter((tag) => !tag.parentIds || tag.parentIds.length === 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getChildTagsForPicker(parentId, tagsList) {
+  return tagsList
+    .filter((t) => t.parentIds && t.parentIds.includes(parentId))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function tagHasChildrenForPicker(tagId, tagsList) {
+  return tagsList.some((t) => t.parentIds && t.parentIds.includes(tagId));
 }
 
 // Open tag modal for creation or editing
@@ -693,6 +783,11 @@ function renderHighlights() {
     const highlightItem = document.createElement('div');
     highlightItem.className = 'highlight-item';
 
+    const hasNote = !!(highlight.note && highlight.note.trim()) || !!(highlight.noteHtml && highlight.noteHtml.trim());
+    const noteHtml = highlight.noteHtml && highlight.noteHtml.trim()
+      ? highlight.noteHtml
+      : (highlight.note ? sanitizeRichTextHtml(escapeHtml(highlight.note).replace(/\n/g, '<br>')) : '');
+
     const tagNames = (highlight.tags && highlight.tags.length > 0)
       ? highlight.tags.map(tagId => {
           const tag = tags.find(t => t.id === tagId);
@@ -705,8 +800,8 @@ function renderHighlights() {
         <div style="margin-bottom: 4px; font-size: 13px; color: #666;">
           ${escapeHtml(highlight.text.substring(0, 100))}${highlight.text.length > 100 ? '...' : ''}
         </div>
-        ${highlight.note ? `<div style="margin: 8px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #4CAF50; font-size: 12px; color: #555; border-radius: 3px;">
-          <strong>Note:</strong> ${escapeHtml(highlight.note)}
+        ${hasNote ? `<div style="margin: 8px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #4CAF50; font-size: 12px; color: #555; border-radius: 3px;">
+          <strong>Note:</strong> <span class="rt-render">${noteHtml}</span>
           <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
             <button class="btn-edit-note" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit Note</button>
             <button class="btn-add-tag" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; border-radius: 3px; cursor: pointer;">+ Add Tag</button>
@@ -827,7 +922,7 @@ async function applyHighlight() {
   
   // Automatically include all parent tags
   const expandedTagIds = expandTagsWithParents(selectedTagIds);
-  const note = document.getElementById('highlightNote').value.trim();
+  const { text: note, html: noteHtml } = getRichTextValue('highlightNoteEditor');
   
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -835,7 +930,8 @@ async function applyHighlight() {
     action: 'highlightText',
     selection: fullText,
     tags: expandedTagIds,
-    note: note
+    note,
+    noteHtml
   }, (response) => {
     if (chrome.runtime.lastError) {
       console.error('Error highlighting:', chrome.runtime.lastError);
@@ -845,7 +941,7 @@ async function applyHighlight() {
     
     // Reset UI
     document.getElementById('tagSelection').style.display = 'none';
-    document.getElementById('highlightNote').value = '';
+    setRichTextValue('highlightNoteEditor', '');
     selectedTextDiv.textContent = 'Please select text on the page first';
     selectedTextDiv.dataset.fullText = '';
     document.getElementById('highlightBtn').disabled = true;
@@ -861,11 +957,12 @@ let currentEditingHighlightId = null;
 function editHighlightNote(highlightId, currentNote = '') {
   currentEditingHighlightId = highlightId;
   const modal = document.getElementById('noteModal');
-  const noteText = document.getElementById('noteText');
   const deleteBtn = document.getElementById('deleteNoteBtn');
   const modalTitle = document.getElementById('noteModalTitle');
   
-  noteText.value = currentNote || '';
+  const highlight = highlights.find(h => h.id === highlightId);
+  const existingHtml = highlight && highlight.noteHtml ? highlight.noteHtml : (currentNote || '');
+  setRichTextValue('noteTextEditor', existingHtml);
   modalTitle.textContent = currentNote ? 'Edit Note' : 'Add Note';
   deleteBtn.style.display = currentNote ? 'inline-block' : 'none';
   modal.classList.add('show');
@@ -881,11 +978,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (saveNoteBtn) {
     saveNoteBtn.addEventListener('click', async () => {
-      const noteText = document.getElementById('noteText').value.trim();
+      const { text: noteText, html: noteHtml } = getRichTextValue('noteTextEditor');
       const highlight = highlights.find(h => h.id === currentEditingHighlightId);
       
       if (highlight) {
         highlight.note = noteText;
+        highlight.noteHtml = noteHtml;
         await saveHighlights();
         renderHighlights();
       }
@@ -907,6 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const highlight = highlights.find(h => h.id === currentEditingHighlightId);
       if (highlight) {
         highlight.note = '';
+        highlight.noteHtml = '';
         await saveHighlights();
         renderHighlights();
       }
@@ -972,12 +1071,11 @@ async function deleteHighlight(highlightId) {
   renderHighlights();
 }
 
-// Add tag to highlight
+// Add tag to highlight (hierarchical browser; merges new tags with existing)
 async function addTagToHighlight(highlightId) {
   const highlight = highlights.find(h => h.id === highlightId);
   if (!highlight) return;
   
-  // Get all tags
   const result = await chrome.storage.local.get(['tags']);
   const allTags = result.tags || [];
   
@@ -986,79 +1084,122 @@ async function addTagToHighlight(highlightId) {
     return;
   }
   
-  // Create a simple modal for tag selection
+  const currentTagIds = highlight.tags || [];
+  const availableTags = allTags.filter(tag => !currentTagIds.includes(tag.id));
+  if (availableTags.length === 0) {
+    alert('All tags are already on this highlight.');
+    return;
+  }
+  
   const modal = document.createElement('div');
   modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;';
   modal.id = 'addTagModal';
   
   const content = document.createElement('div');
-  content.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto;';
+  content.className = 'tag-picker-modal-content';
   
-  const currentTagIds = highlight.tags || [];
-  const availableTags = allTags.filter(tag => !currentTagIds.includes(tag.id));
+  let path = [];
+  const selected = new Set();
   
-  let tagCheckboxes = '';
-  availableTags.forEach(tag => {
-    tagCheckboxes += `
-      <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 4px;">
-        <input type="checkbox" value="${tag.id}">
-        <span style="width: 16px; height: 16px; background-color: ${tag.color}; border: 1px solid #ddd; border-radius: 3px;"></span>
-        <span>${escapeHtml(tag.name)}</span>
-      </label>
+  function renderPicker() {
+    const bcEl = content.querySelector('#tagPickerBreadcrumb');
+    const listEl = content.querySelector('#tagPickerList');
+    const parentId = path.length ? path[path.length - 1] : null;
+    const items = parentId === null ? getRootTagsForPicker(allTags) : getChildTagsForPicker(parentId, allTags);
+    
+    bcEl.innerHTML = `
+      <button type="button" class="tag-picker-bc${path.length === 0 ? ' is-current' : ''}" data-bc-depth="0">All tags</button>
+      ${path.map((id, i) => {
+        const t = allTags.find((x) => x.id === id);
+        const label = t ? escapeHtml(t.name) : '?';
+        const isLast = i === path.length - 1;
+        return `<span class="tag-picker-bc-sep" aria-hidden="true">›</span><button type="button" class="tag-picker-bc${isLast ? ' is-current' : ''}" data-bc-depth="${i + 1}">${label}</button>`;
+      }).join('')}
     `;
-  });
+    
+    bcEl.querySelectorAll('.tag-picker-bc').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const depth = parseInt(btn.getAttribute('data-bc-depth'), 10);
+        path = path.slice(0, depth);
+        renderPicker();
+      });
+    });
+    
+    if (items.length === 0) {
+      listEl.innerHTML = '<p class="tag-picker-empty">No tags at this level.</p>';
+      return;
+    }
+    
+    listEl.innerHTML = items.map((tag) => {
+      const hasKids = tagHasChildrenForPicker(tag.id, allTags);
+      const canSelect = !currentTagIds.includes(tag.id);
+      const checked = selected.has(tag.id);
+      return `
+        <div class="tag-picker-row">
+          <label class="tag-picker-label">
+            <input type="checkbox" class="tag-picker-cb" value="${tag.id}" ${checked ? 'checked' : ''} ${!canSelect ? 'disabled' : ''}>
+            <span class="tag-picker-swatch" style="background-color:${tag.color}"></span>
+            <span class="tag-picker-name">${escapeHtml(tag.name)}</span>
+          </label>
+          ${hasKids ? `<button type="button" class="tag-picker-drill" data-drill="${tag.id}" title="Show child tags" aria-label="Open child tags">▶</button>` : '<span class="tag-picker-drill-spacer" aria-hidden="true"></span>'}
+        </div>
+      `;
+    }).join('');
+    
+    listEl.querySelectorAll('.tag-picker-drill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        path = [...path, btn.getAttribute('data-drill')];
+        renderPicker();
+      });
+    });
+    
+    listEl.querySelectorAll('.tag-picker-cb').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const id = cb.value;
+        if (cb.checked) selected.add(id);
+        else selected.delete(id);
+      });
+    });
+  }
   
   content.innerHTML = `
-    <h3 style="margin: 0 0 16px 0;">Add Tags to Highlight</h3>
-    <div style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;">
-      ${availableTags.length === 0 ? '<p style="color: #666;">All available tags are already added to this highlight.</p>' : tagCheckboxes}
-    </div>
-    <div style="display: flex; gap: 8px; justify-content: flex-end;">
-      <button id="cancelAddTag" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
-      <button id="saveAddTag" style="padding: 8px 16px; border: none; background: #4CAF50; color: white; border-radius: 4px; cursor: pointer;">Add Tags</button>
+    <h3 class="tag-picker-title">Add Tags</h3>
+    <p class="tag-picker-hint">Browse with the trail below (▶ opens child tags). Check tags to add.</p>
+    <nav class="tag-picker-breadcrumb" id="tagPickerBreadcrumb" aria-label="Tag hierarchy"></nav>
+    <div class="tag-picker-list" id="tagPickerList"></div>
+    <div class="tag-picker-actions">
+      <button type="button" id="cancelAddTag" class="tag-picker-btn tag-picker-btn-secondary">Cancel</button>
+      <button type="button" id="saveAddTag" class="tag-picker-btn tag-picker-btn-primary">Add Tags</button>
     </div>
   `;
   
   modal.appendChild(content);
   document.body.appendChild(modal);
+  renderPicker();
   
   content.querySelector('#cancelAddTag').addEventListener('click', () => modal.remove());
   content.querySelector('#saveAddTag').addEventListener('click', async () => {
-    const checkboxes = content.querySelectorAll('input[type="checkbox"]:checked');
-    const selectedTagIds = Array.from(checkboxes).map(cb => cb.value);
-    
+    const selectedTagIds = Array.from(selected);
     if (selectedTagIds.length === 0) {
       alert('Please select at least one tag.');
       return;
     }
-    
-    // Automatically include all parent tags
-    const expandedTagIds = expandTagsWithParents(selectedTagIds);
-    
-    // Merge with existing tags
+    const expandedTagIds = expandTagsWithParents(selectedTagIds, allTags);
     const newTags = [...new Set([...currentTagIds, ...expandedTagIds])];
-    
-    // Update highlight
     highlight.tags = newTags;
-    
-    // Save to storage
     await chrome.storage.local.set({ highlights });
-    
-    // Sync to cloud if logged in
     if (window.authService && window.authService.getCurrentUser()) {
       window.authService.syncHighlightsToCloud().catch(err => {
         console.error('Error syncing highlights to cloud:', err);
       });
     }
-    
-    // Update in background
     chrome.runtime.sendMessage({
       action: 'updateHighlight',
       highlightId: highlight.id,
       tags: newTags,
-      note: highlight.note || ''
+      note: highlight.note || '',
+      noteHtml: highlight.noteHtml || ''
     });
-    
     modal.remove();
     renderHighlights();
   });

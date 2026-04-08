@@ -67,6 +67,15 @@ function setupAuthUI() {
     });
   }
 
+  // Handle form submission for forgot password
+  const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+  if (forgotPasswordForm) {
+    forgotPasswordForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (sendResetEmailBtn) sendResetEmailBtn.click(); // Trigger existing click handler
+    });
+  }
+
   if (sendResetEmailBtn) {
     sendResetEmailBtn.addEventListener('click', async () => {
       const email = document.getElementById('forgotPasswordEmail').value.trim();
@@ -100,6 +109,14 @@ function setupAuthUI() {
     });
   }
 
+  // Handle form submission for sign-in
+  if (signInForm) {
+    signInForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (signInBtn) signInBtn.click(); // Trigger existing click handler
+    });
+  }
+
   if (signInBtn) {
     signInBtn.addEventListener('click', async () => {
       const email = document.getElementById('signInEmail').value.trim();
@@ -124,6 +141,14 @@ function setupAuthUI() {
 
       signInBtn.disabled = false;
       signInBtn.textContent = 'Sign In';
+    });
+  }
+
+  // Handle form submission for sign-up
+  if (signUpForm) {
+    signUpForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (signUpBtn) signUpBtn.click(); // Trigger existing click handler
     });
   }
 

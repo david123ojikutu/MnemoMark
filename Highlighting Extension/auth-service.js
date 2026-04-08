@@ -10,8 +10,12 @@ let tokenRefreshTimeout = null;
 
 const AUTH_STORAGE_KEY = 'authState';
 
+function getGlobal() {
+  return typeof globalThis !== 'undefined' ? globalThis : window;
+}
+
 function getAuthConfig() {
-  const config = window.authConfig || {};
+  const config = getGlobal().authConfig || {};
   if (!config.apiKey || !config.projectId) {
     console.warn('Auth not configured. Update auth-config.js with your Firebase project values.');
     return null;
@@ -27,7 +31,64 @@ function setAuthState(user) {
   currentUser = user;
   shareTags = user ? true : false; // Always sync tags when logged in
   shareHighlights = user ? true : false; // Highlights are always synced when logged in
-  window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { user, shareTags, shareHighlights } }));
+  getGlobal().dispatchEvent(new CustomEvent('authStateChanged', { detail: { user, shareTags, shareHighlights } }));
+}
+
+// Keep service worker / popup session in sync with chrome.storage.sync (sign-in happens in UI pages).
+async function ensureAuthHydratedFromStorage() {
+  const stored = await loadStoredAuthState();
+  if (!stored || !stored.idToken) {
+    if (currentUser) {
+      clearRefreshTimer();
+      if (tagSyncIntervalId) {
+        clearInterval(tagSyncIntervalId);
+        tagSyncIntervalId = null;
+      }
+      if (highlightSyncIntervalId) {
+        clearInterval(highlightSyncIntervalId);
+        highlightSyncIntervalId = null;
+      }
+      setAuthState(null);
+    }
+    return false;
+  }
+
+  if (!currentUser || currentUser.uid !== stored.uid) {
+    setAuthState(stored);
+    await ensureValidToken();
+    scheduleTokenRefresh(currentUser ? currentUser.expiresAt : null);
+    if (currentUser) {
+      await loadUserSettings();
+      if (!shareTags) {
+        const tagsDoc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
+        if (tagsDoc && tagsDoc.fields && tagsDoc.fields.tags) {
+          shareTags = true;
+          currentUser.shareTags = true;
+          await storeAuthState(currentUser);
+          setAuthState(currentUser);
+        }
+      }
+      setupTagSyncListener();
+      setupHighlightSyncListener();
+    }
+    return !!currentUser;
+  }
+
+  if (stored.idToken !== currentUser.idToken || stored.expiresAt !== currentUser.expiresAt) {
+    setAuthState({ ...currentUser, ...stored });
+    await ensureValidToken();
+    scheduleTokenRefresh(currentUser.expiresAt);
+  }
+  return true;
+}
+
+// Remote wins on same highlight id; keep local-only rows (not yet uploaded).
+function mergeRemoteHighlightsIntoLocal(remote, local) {
+  const r = Array.isArray(remote) ? remote : [];
+  const l = Array.isArray(local) ? local : [];
+  const remoteIds = new Set(r.map((h) => (h && h.id != null ? String(h.id) : null)).filter(Boolean));
+  const localOnly = l.filter((h) => h && h.id != null && !remoteIds.has(String(h.id)));
+  return [...r, ...localOnly];
 }
 
 function clearRefreshTimer() {
@@ -60,11 +121,13 @@ function decodeJwtExp(token) {
 }
 
 function storeAuthState(user) {
-  return chrome.storage.local.set({ [AUTH_STORAGE_KEY]: user });
+  // Use chrome.storage.sync for cross-device synchronization
+  return chrome.storage.sync.set({ [AUTH_STORAGE_KEY]: user });
 }
 
 async function loadStoredAuthState() {
-  const result = await chrome.storage.local.get([AUTH_STORAGE_KEY]);
+  // Use chrome.storage.sync for cross-device synchronization
+  const result = await chrome.storage.sync.get([AUTH_STORAGE_KEY]);
   return result[AUTH_STORAGE_KEY] || null;
 }
 
@@ -220,24 +283,9 @@ async function firestoreDeleteDocument(docPath) {
 async function initAuth() {
   const stored = await loadStoredAuthState();
   if (stored && stored.idToken) {
-    setAuthState(stored);
-    await ensureValidToken();
-    scheduleTokenRefresh(currentUser ? currentUser.expiresAt : null);
+    await ensureAuthHydratedFromStorage();
     if (currentUser) {
-      await loadUserSettings();
-      if (!shareTags) {
-        const tagsDoc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
-        if (tagsDoc && tagsDoc.fields && tagsDoc.fields.tags) {
-          shareTags = true;
-          currentUser.shareTags = true;
-          await storeAuthState(currentUser);
-          setAuthState(currentUser);
-        }
-      }
-      // Always sync tags and highlights when logged in
-        setupTagSyncListener();
       await syncHighlightsFromCloud();
-      setupHighlightSyncListener();
     }
   } else {
     setAuthState(null);
@@ -384,7 +432,7 @@ async function signOutUser() {
   // Clear account data from local storage
   await chrome.storage.local.remove(['tags', 'highlights']);
   
-  await chrome.storage.local.remove([AUTH_STORAGE_KEY]);
+  await chrome.storage.sync.remove([AUTH_STORAGE_KEY]);
   setAuthState(null);
   return { success: true };
 }
@@ -451,6 +499,7 @@ async function loadUserSettings() {
 }
 
 async function syncTagsToCloud() {
+  if (!(await ensureAuthHydratedFromStorage())) return;
   if (!currentUser || !shareTags) return;
   const result = await chrome.storage.local.get(['tags']);
   const tags = result.tags || [];
@@ -462,12 +511,13 @@ async function syncTagsToCloud() {
 }
 
 async function syncTagsFromCloud() {
+  if (!(await ensureAuthHydratedFromStorage())) return;
   if (!currentUser || !shareTags) return;
   const doc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/tags`);
   if (doc && doc.fields && doc.fields.tags) {
     const tags = fromFirestoreValue(doc.fields.tags) || [];
     await chrome.storage.local.set({ tags });
-    window.dispatchEvent(new CustomEvent('tagsSynced', { detail: { tags } }));
+    getGlobal().dispatchEvent(new CustomEvent('tagsSynced', { detail: { tags } }));
     return { success: true, tags };
   }
   return { success: true, tags: [] };
@@ -484,6 +534,7 @@ function setupTagSyncListener() {
 }
 
 async function syncHighlightsToCloud() {
+  if (!(await ensureAuthHydratedFromStorage())) return;
   if (!currentUser) return;
   const result = await chrome.storage.local.get(['highlights']);
   const highlights = result.highlights || [];
@@ -495,15 +546,22 @@ async function syncHighlightsToCloud() {
 }
 
 async function syncHighlightsFromCloud() {
+  if (!(await ensureAuthHydratedFromStorage())) return;
   if (!currentUser) return;
+
+  const localResult = await chrome.storage.local.get(['highlights']);
+  const localHighlights = localResult.highlights || [];
+
   const doc = await firestoreGetDocument(`users/${encodeURIComponent(currentUser.uid)}/data/highlights`);
+  let merged = localHighlights;
   if (doc && doc.fields && doc.fields.highlights) {
-    const highlights = fromFirestoreValue(doc.fields.highlights) || [];
-    await chrome.storage.local.set({ highlights });
-    window.dispatchEvent(new CustomEvent('highlightsSynced', { detail: { highlights } }));
-    return { success: true, highlights };
+    const remoteHighlights = fromFirestoreValue(doc.fields.highlights) || [];
+    merged = mergeRemoteHighlightsIntoLocal(remoteHighlights, localHighlights);
   }
-  return { success: true, highlights: [] };
+
+  await chrome.storage.local.set({ highlights: merged });
+  getGlobal().dispatchEvent(new CustomEvent('highlightsSynced', { detail: { highlights: merged } }));
+  return { success: true, highlights: merged };
 }
 
 function setupHighlightSyncListener() {
@@ -526,7 +584,7 @@ function isSharingTags() {
 // Initialize on load.
 initAuth();
 
-window.authService = {
+getGlobal().authService = {
   signUp,
   signIn,
   signOut: signOutUser,
