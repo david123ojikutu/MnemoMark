@@ -166,7 +166,18 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="noteText">Note:</label>
-                    <textarea id="noteText" placeholder="Enter your note..." rows="5" style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+                    <div class="rt-wrap" data-rt="noteText">
+                        <div class="rt-toolbar" role="toolbar" aria-label="Note formatting">
+                            <button type="button" class="rt-btn" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+                            <button type="button" class="rt-btn" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+                            <button type="button" class="rt-btn" data-cmd="underline" aria-label="Underline"><span style="text-decoration: underline;">U</span></button>
+                            <button type="button" class="rt-btn" data-cmd="strikeThrough" aria-label="Strikethrough"><span style="text-decoration: line-through;">S</span></button>
+                            <span class="rt-sep" aria-hidden="true"></span>
+                            <button type="button" class="rt-btn" data-cmd="insertUnorderedList" aria-label="Bulleted list">• List</button>
+                            <button type="button" class="rt-btn" data-cmd="insertOrderedList" aria-label="Numbered list">1. List</button>
+                        </div>
+                        <div id="noteTextEditor" class="rt-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Enter your note..."></div>
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button id="saveNoteBtn" class="btn btn-primary">Save Note</button>

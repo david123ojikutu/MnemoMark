@@ -8,6 +8,72 @@ let currentEditingHighlightId = null;
 let selectedHighlightIds = new Set();
 let highlightSelectionVisible = false;
 
+function sanitizeRichTextHtml(inputHtml) {
+    if (!inputHtml || typeof inputHtml !== 'string') return '';
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(inputHtml, 'text/html');
+    const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI']);
+
+    function clean(node) {
+        const children = Array.from(node.childNodes);
+        children.forEach((child) => {
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                const el = child;
+                const tagName = el.tagName;
+                if (!allowedTags.has(tagName)) {
+                    const frag = doc.createDocumentFragment();
+                    while (el.firstChild) frag.appendChild(el.firstChild);
+                    el.replaceWith(frag);
+                    return;
+                }
+                Array.from(el.attributes).forEach((attr) => el.removeAttribute(attr.name));
+                clean(el);
+            } else if (child.nodeType === Node.COMMENT_NODE) {
+                child.remove();
+            }
+        });
+    }
+
+    clean(doc.body);
+    const cleaned = doc.body.innerHTML.trim();
+    return cleaned === '<br>' ? '' : cleaned;
+}
+
+function initRichTextToolbar(wrapper) {
+    if (!wrapper) return;
+    const editor = wrapper.querySelector('.rt-editor');
+    const toolbar = wrapper.querySelector('.rt-toolbar');
+    if (!editor || !toolbar) return;
+
+    toolbar.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('.rt-btn') : null;
+        if (!btn) return;
+        e.preventDefault();
+        const cmd = btn.getAttribute('data-cmd');
+        if (!cmd) return;
+        editor.focus();
+        try {
+            document.execCommand(cmd, false, null);
+        } catch (_) {}
+    });
+}
+
+function getRichTextValue(editorId) {
+    const editor = document.getElementById(editorId);
+    if (!editor) return { text: '', html: '' };
+    const html = sanitizeRichTextHtml(editor.innerHTML || '');
+    const text = (editor.innerText || '').trim();
+    return { text, html };
+}
+
+function setRichTextValue(editorId, htmlOrText) {
+    const editor = document.getElementById(editorId);
+    if (!editor) return;
+    const value = htmlOrText || '';
+    const looksLikeHtml = typeof value === 'string' && /<\/?[a-z][\s\S]*>/i.test(value);
+    editor.innerHTML = looksLikeHtml ? sanitizeRichTextHtml(value) : sanitizeRichTextHtml(escapeHtml(value).replace(/\n/g, '<br>'));
+}
+
 const tabs = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 const tagsList = document.getElementById("tagsList");
@@ -88,7 +154,7 @@ function saveTags() {
 function loadHighlights() {
     // Defer to next event loop tick to avoid blocking
     setTimeout(() => {
-        const all = [];
+    const all = [];
         const keys = Object.keys(localStorage);
         let index = 0;
         
@@ -99,22 +165,22 @@ function loadHighlights() {
             
             for (let i = index; i < end; i++) {
                 const key = keys[i];
-                if (!key.startsWith(HIGHLIGHT_PREFIX)) {
+        if (!key.startsWith(HIGHLIGHT_PREFIX)) {
                     continue;
-                }
-                try {
-                    const items = JSON.parse(localStorage.getItem(key) || "[]");
-                    const filePath = key.slice(HIGHLIGHT_PREFIX.length);
-                    items.forEach(item => {
-                        all.push({
-                            ...item,
-                            _sourceKey: key,
-                            _filePath: filePath
-                        });
-                    });
-                } catch (error) {
-                    console.error("Unable to parse highlight data", error);
-                }
+        }
+        try {
+            const items = JSON.parse(localStorage.getItem(key) || "[]");
+            const filePath = key.slice(HIGHLIGHT_PREFIX.length);
+            items.forEach(item => {
+                all.push({
+                    ...item,
+                    _sourceKey: key,
+                    _filePath: filePath
+                });
+            });
+        } catch (error) {
+            console.error("Unable to parse highlight data", error);
+        }
             }
             
             index = end;
@@ -122,7 +188,7 @@ function loadHighlights() {
                 // Process next chunk asynchronously
                 setTimeout(processChunk, 0);
             } else {
-                highlights = all;
+    highlights = all;
                 filterHighlights(); // This will apply filters and render
                 updateStats();
             }
@@ -135,20 +201,20 @@ function loadHighlights() {
 function saveHighlightUpdate(highlight) {
     // Defer localStorage write to avoid blocking the event loop
     setTimeout(() => {
-        const sourceKey = highlight._sourceKey;
-        if (!sourceKey) return;
-        const stored = JSON.parse(localStorage.getItem(sourceKey) || "[]");
-        const updated = stored.map(item => {
-            if (item.id === highlight.id) {
-                return {
-                    ...item,
-                    tags: highlight.tags || [],
-                    note: highlight.note || ""
-                };
-            }
-            return item;
-        });
-        localStorage.setItem(sourceKey, JSON.stringify(updated));
+    const sourceKey = highlight._sourceKey;
+    if (!sourceKey) return;
+    const stored = JSON.parse(localStorage.getItem(sourceKey) || "[]");
+    const updated = stored.map(item => {
+        if (item.id === highlight.id) {
+            return {
+                ...item,
+                tags: highlight.tags || [],
+                note: highlight.note || ""
+            };
+        }
+        return item;
+    });
+    localStorage.setItem(sourceKey, JSON.stringify(updated));
         // Push the change to Firestore so the next app-start cloud-pull
         // doesn't restore the old version over this edit.
         if (window.authService && window.authService.getCurrentUser()) {
@@ -160,11 +226,11 @@ function saveHighlightUpdate(highlight) {
 function saveHighlightDelete(highlight) {
     // Defer localStorage write to avoid blocking the event loop
     setTimeout(() => {
-        const sourceKey = highlight._sourceKey;
-        if (!sourceKey) return;
-        const stored = JSON.parse(localStorage.getItem(sourceKey) || "[]");
-        const updated = stored.filter(item => item.id !== highlight.id);
-        localStorage.setItem(sourceKey, JSON.stringify(updated));
+    const sourceKey = highlight._sourceKey;
+    if (!sourceKey) return;
+    const stored = JSON.parse(localStorage.getItem(sourceKey) || "[]");
+    const updated = stored.filter(item => item.id !== highlight.id);
+    localStorage.setItem(sourceKey, JSON.stringify(updated));
         // Push the deletion to Firestore immediately. Without this, the 60-second
         // sync interval (setupHighlightSyncListener) pulls the cloud copy — which
         // still contains the deleted highlight — and overwrites the local delete,
@@ -289,13 +355,13 @@ function filterTags() {
 function renderHighlights(filteredHighlights = null) {
     // Use requestAnimationFrame to avoid blocking the event loop
     requestAnimationFrame(() => {
-        const list = filteredHighlights || highlights;
-        highlightsList.innerHTML = "";
+    const list = filteredHighlights || highlights;
+    highlightsList.innerHTML = "";
 
-        if (list.length === 0) {
-            highlightsList.innerHTML = '<div class="empty-state">No highlights found.</div>';
-            return;
-        }
+    if (list.length === 0) {
+        highlightsList.innerHTML = '<div class="empty-state">No highlights found.</div>';
+        return;
+    }
 
         // Render in chunks to avoid blocking
         let index = 0;
@@ -306,77 +372,77 @@ function renderHighlights(filteredHighlights = null) {
             
             for (let i = index; i < end; i++) {
                 const highlight = list[i];
-                const tagNames = (highlight.tags || []).map(tagId => tags.find(t => t.id === tagId)).filter(Boolean);
-                const fileName = highlight._filePath
-                    ? highlight._filePath.substring(highlight._filePath.lastIndexOf("\\") + 1)
-                    : "Unknown file";
-                const tagButtonLabel = (highlight.tags && highlight.tags.length > 0) ? "Edit Tags" : "+ Add Tag";
+        const tagNames = (highlight.tags || []).map(tagId => tags.find(t => t.id === tagId)).filter(Boolean);
+        const fileName = highlight._filePath
+            ? highlight._filePath.substring(highlight._filePath.lastIndexOf("\\") + 1)
+            : "Unknown file";
+        const tagButtonLabel = (highlight.tags && highlight.tags.length > 0) ? "Edit Tags" : "+ Add Tag";
 
-                const highlightItem = document.createElement("div");
-                highlightItem.className = "highlight-item";
-                highlightItem.dataset.highlightId = highlight.id;
-                highlightItem.innerHTML = `
-                    <div class="highlight-top">
-                        <input type="checkbox" class="highlight-checkbox" data-highlight-id="${highlight.id}" style="cursor: pointer; display: none;">
-                        <div class="highlight-text">
-                            ${escapeHtml(highlight.text || "(no text)")}
-                        </div>
-                    </div>
-                    ${highlight.note ? `<div class="highlight-note">
-                        <strong>Note:</strong> ${escapeHtml(highlight.note)}
-                        <div style="margin-top: 8px; display: flex; flex-wrap: wrap;">
-                            <button class="btn-edit-note" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 12px;">Edit Note</button>
-                            <button class="btn-add-tag" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; border-radius: 3px; cursor: pointer;">${tagButtonLabel}</button>
-                        </div>
-                    </div>` : `<div style="margin: 8px 0; display: flex; flex-wrap: wrap;">
-                        <button class="btn-add-note" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #f0f0f0; color: #666; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; margin-right: 12px;">+ Add Note</button>
-                        <button class="btn-add-tag" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; border-radius: 3px; cursor: pointer;">${tagButtonLabel}</button>
-                    </div>`}
-                    <div class="highlight-meta">
-                        <div class="highlight-tags">
-                            ${tagNames.length > 0
-                                ? tagNames.map(tag => `<span class="tag-badge" style="background-color: ${tag.color}20; color: ${tag.color}; border: 1px solid ${tag.color}40;">${escapeHtml(tag.name)}</span>`).join("")
-                                : '<span class="tag-badge">No tags</span>'}
-                        </div>
-                        <span class="highlight-url">${escapeHtml(fileName)} • Page ${highlight.pageNumber || "-"}</span>
-                    </div>
-                    <div class="highlight-actions" style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button class="btn-delete-highlight" data-highlight-id="${highlight.id}" style="padding: 6px 12px; font-size: 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
-                    </div>
-                `;
+        const highlightItem = document.createElement("div");
+        highlightItem.className = "highlight-item";
+        highlightItem.dataset.highlightId = highlight.id;
+        highlightItem.innerHTML = `
+            <div class="highlight-top">
+                <input type="checkbox" class="highlight-checkbox" data-highlight-id="${highlight.id}" style="cursor: pointer; display: none;">
+                <div class="highlight-text">
+                    ${escapeHtml(highlight.text || "(no text)")}
+                </div>
+            </div>
+            ${((highlight.note && highlight.note.trim()) || (highlight.noteHtml && highlight.noteHtml.trim())) ? `<div class="highlight-note">
+                <strong>Note:</strong> <span class="rt-render">${(highlight.noteHtml && highlight.noteHtml.trim()) ? highlight.noteHtml : sanitizeRichTextHtml(escapeHtml(highlight.note || '').replace(/\n/g, '<br>'))}</span>
+                <div style="margin-top: 8px; display: flex; flex-wrap: wrap;">
+                    <button class="btn-edit-note" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 12px;">Edit Note</button>
+                    <button class="btn-add-tag" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; border-radius: 3px; cursor: pointer;">${tagButtonLabel}</button>
+                </div>
+            </div>` : `<div style="margin: 8px 0; display: flex; flex-wrap: wrap;">
+                <button class="btn-add-note" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #f0f0f0; color: #666; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; margin-right: 12px;">+ Add Note</button>
+                <button class="btn-add-tag" data-highlight-id="${highlight.id}" style="padding: 4px 8px; font-size: 11px; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; border-radius: 3px; cursor: pointer;">${tagButtonLabel}</button>
+            </div>`}
+            <div class="highlight-meta">
+                <div class="highlight-tags">
+                    ${tagNames.length > 0
+                        ? tagNames.map(tag => `<span class="tag-badge" style="background-color: ${tag.color}20; color: ${tag.color}; border: 1px solid ${tag.color}40;">${escapeHtml(tag.name)}</span>`).join("")
+                        : '<span class="tag-badge">No tags</span>'}
+                </div>
+                <span class="highlight-url">${escapeHtml(fileName)} • Page ${highlight.pageNumber || "-"}</span>
+            </div>
+            <div class="highlight-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="btn-delete-highlight" data-highlight-id="${highlight.id}" style="padding: 6px 12px; font-size: 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+            </div>
+        `;
 
-                const addNoteBtn = highlightItem.querySelector(".btn-add-note");
-                const editNoteBtn = highlightItem.querySelector(".btn-edit-note");
-                const addTagBtn = highlightItem.querySelector(".btn-add-tag");
-                const deleteBtn = highlightItem.querySelector(".btn-delete-highlight");
-                const checkbox = highlightItem.querySelector(".highlight-checkbox");
+        const addNoteBtn = highlightItem.querySelector(".btn-add-note");
+        const editNoteBtn = highlightItem.querySelector(".btn-edit-note");
+        const addTagBtn = highlightItem.querySelector(".btn-add-tag");
+        const deleteBtn = highlightItem.querySelector(".btn-delete-highlight");
+        const checkbox = highlightItem.querySelector(".highlight-checkbox");
 
-                if (addNoteBtn) addNoteBtn.addEventListener("click", () => editHighlightNote(highlight.id));
-                if (editNoteBtn) editNoteBtn.addEventListener("click", () => editHighlightNote(highlight.id, highlight.note));
-                if (addTagBtn) {
-                    addTagBtn.addEventListener("click", (event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        addTagToHighlight(highlight.id);
-                    });
+        if (addNoteBtn) addNoteBtn.addEventListener("click", () => editHighlightNote(highlight.id));
+        if (editNoteBtn) editNoteBtn.addEventListener("click", () => editHighlightNote(highlight.id, highlight.note));
+        if (addTagBtn) {
+            addTagBtn.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                addTagToHighlight(highlight.id);
+            });
+        }
+        if (deleteBtn) deleteBtn.addEventListener("click", () => deleteHighlight(highlight.id));
+        if (checkbox) {
+            checkbox.style.display = highlightSelectionVisible ? "block" : "none";
+            checkbox.checked = selectedHighlightIds.has(highlight.id);
+            highlightItem.classList.toggle("highlight-selected", checkbox.checked);
+            checkbox.addEventListener("change", (e) => {
+                if (e.target.checked) {
+                    selectedHighlightIds.add(highlight.id);
+                } else {
+                    selectedHighlightIds.delete(highlight.id);
                 }
-                if (deleteBtn) deleteBtn.addEventListener("click", () => deleteHighlight(highlight.id));
-                if (checkbox) {
-                    checkbox.style.display = highlightSelectionVisible ? "block" : "none";
-                    checkbox.checked = selectedHighlightIds.has(highlight.id);
-                    highlightItem.classList.toggle("highlight-selected", checkbox.checked);
-                    checkbox.addEventListener("change", (e) => {
-                        if (e.target.checked) {
-                            selectedHighlightIds.add(highlight.id);
-                        } else {
-                            selectedHighlightIds.delete(highlight.id);
-                        }
-                        highlightItem.classList.toggle("highlight-selected", e.target.checked);
-                        updateSelectedHighlightsCount();
-                    });
-                }
+                highlightItem.classList.toggle("highlight-selected", e.target.checked);
+                updateSelectedHighlightsCount();
+            });
+        }
 
-                highlightsList.appendChild(highlightItem);
+        highlightsList.appendChild(highlightItem);
             }
             
             index = end;
@@ -1112,7 +1178,9 @@ function editHighlightNote(highlightId, currentNote = "") {
     if (deleteNoteBtn) {
         deleteNoteBtn.style.display = currentNote ? "inline-block" : "none";
     }
-    noteText.value = currentNote || "";
+    const highlight = highlights.find(h => h.id === currentEditingHighlightId);
+    const existingHtml = highlight && highlight.noteHtml ? highlight.noteHtml : (currentNote || "");
+    setRichTextValue("noteTextEditor", existingHtml);
     noteModal.classList.add("show");
 }
 
@@ -1124,7 +1192,9 @@ function closeNoteModalDialog() {
 function saveNote() {
     const highlight = highlights.find(h => h.id === currentEditingHighlightId);
     if (!highlight) return;
-    highlight.note = noteText.value.trim();
+    const { text, html } = getRichTextValue("noteTextEditor");
+    highlight.note = text;
+    highlight.noteHtml = html;
     saveHighlightUpdate(highlight);
     closeNoteModalDialog();
     filterHighlights();
@@ -1134,6 +1204,7 @@ function deleteNote() {
     const highlight = highlights.find(h => h.id === currentEditingHighlightId);
     if (!highlight) return;
     highlight.note = "";
+    highlight.noteHtml = "";
     saveHighlightUpdate(highlight);
     closeNoteModalDialog();
     filterHighlights();
@@ -1292,6 +1363,7 @@ filterHighlights();
 updateStats();
 handleHighlightSelectionCriteriaChange();
 updateSelectedHighlightsCount();
+initRichTextToolbar(document.querySelector('.rt-wrap[data-rt="noteText"]'));
 
 window.addEventListener("storage", (event) => {
     if (!event.key) {

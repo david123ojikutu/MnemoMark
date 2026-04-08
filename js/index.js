@@ -622,6 +622,63 @@
             });
         }
 
+        _sanitizeRichTextHtml(inputHtml) {
+            if (!inputHtml || typeof inputHtml !== 'string') return '';
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(inputHtml, 'text/html');
+            const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI']);
+
+            function clean(node) {
+                const children = Array.from(node.childNodes);
+                children.forEach((child) => {
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        const el = child;
+                        const tagName = el.tagName;
+                        if (!allowedTags.has(tagName)) {
+                            const frag = doc.createDocumentFragment();
+                            while (el.firstChild) frag.appendChild(el.firstChild);
+                            el.replaceWith(frag);
+                            return;
+                        }
+                        Array.from(el.attributes).forEach((attr) => el.removeAttribute(attr.name));
+                        clean(el);
+                    } else if (child.nodeType === Node.COMMENT_NODE) {
+                        child.remove();
+                    }
+                });
+            }
+
+            clean(doc.body);
+            const cleaned = doc.body.innerHTML.trim();
+            return cleaned === '<br>' ? '' : cleaned;
+        }
+
+        _escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        _initRichTextToolbar() {
+            const wrapper = this._modal ? this._modal.querySelector('.rt-wrap[data-rt="highlightNoteInput"]') : null;
+            if (!wrapper) return;
+            const editor = wrapper.querySelector('.rt-editor');
+            const toolbar = wrapper.querySelector('.rt-toolbar');
+            if (!editor || !toolbar) return;
+
+            toolbar.addEventListener('click', (e) => {
+                const btn = e.target && e.target.closest ? e.target.closest('.rt-btn') : null;
+                if (!btn) return;
+                e.preventDefault();
+                const cmd = btn.getAttribute('data-cmd');
+                if (!cmd) return;
+                editor.focus();
+                try {
+                    document.execCommand(cmd, false, null);
+                } catch (_) {}
+            });
+        }
+
         _openCreateHighlightModal() {
             const selection = this._getSelection();
             if (!selection || selection.isCollapsed || !selection.toString().trim()) {
@@ -655,7 +712,9 @@
                 this._modalSelectedText.textContent = selectedText || '';
             }
             if (this._modalNoteInput) {
-                this._modalNoteInput.value = highlight && highlight.note ? highlight.note : '';
+                const html = highlight && highlight.noteHtml ? highlight.noteHtml : (highlight && highlight.note ? highlight.note : '');
+                const looksLikeHtml = typeof html === 'string' && /<\/?[a-z][\s\S]*>/i.test(html);
+                this._modalNoteInput.innerHTML = looksLikeHtml ? this._sanitizeRichTextHtml(html) : this._sanitizeRichTextHtml(this._escapeHtml(html).replace(/\n/g, '<br>'));
             }
             if (this._modalSaveBtn) {
                 this._modalSaveBtn.textContent = mode === 'edit' ? 'Save' : 'Highlight';
@@ -663,6 +722,7 @@
             if (this._modalDeleteBtn) {
                 this._modalDeleteBtn.style.display = mode === 'edit' ? 'inline-block' : 'none';
             }
+            this._initRichTextToolbar();
             this._modal.style.display = 'flex';
         }
 
@@ -682,10 +742,12 @@
                 this._modalTagContainer.querySelectorAll('input[type="checkbox"]:checked')
             ).map(input => input.value);
             const expandedTagIds = this._expandTagsWithParents(selectedTagIds, tags);
-            const note = this._modalNoteInput ? this._modalNoteInput.value.trim() : '';
+            const rawHtml = this._modalNoteInput ? (this._modalNoteInput.innerHTML || '') : '';
+            const noteHtml = this._sanitizeRichTextHtml(rawHtml);
+            const note = this._modalNoteInput ? (this._modalNoteInput.innerText || '').trim() : '';
 
             if (this._editingHighlightId) {
-                this._updateHighlight(this._editingHighlightId, { tags: expandedTagIds, note });
+                this._updateHighlight(this._editingHighlightId, { tags: expandedTagIds, note, noteHtml });
                 this._closeHighlightModal();
                 return;
             }
@@ -700,6 +762,7 @@
             }
             highlight.tags = expandedTagIds;
             highlight.note = note;
+            highlight.noteHtml = noteHtml;
             this._clearPreviewHighlight();
             this._saveHighlight(highlight);
             this._renderHighlight(highlight);
