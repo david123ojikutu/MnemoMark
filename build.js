@@ -21,6 +21,19 @@ const filesToCopy = [
   { src: 'pwa/.nojekyll', dest: 'dist/.nojekyll' }
 ];
 
+// Standalone Tag Relations PWA (GitHub Pages: /tag-relations-pwa/)
+const tagRelationsPwaFiles = [
+  { src: 'pwa/tag-relations-web.html', dest: 'dist/tag-relations-pwa/index.html' },
+  { src: 'pwa/tag-relations-web.css', dest: 'dist/tag-relations-pwa/tag-relations-web.css' },
+  { src: 'pwa/tag-relations-web.js', dest: 'dist/tag-relations-pwa/tag-relations-web.js' },
+  { src: 'pwa/auth-config.js', dest: 'dist/tag-relations-pwa/auth-config.js' },
+  { src: 'pwa/auth-service.js', dest: 'dist/tag-relations-pwa/auth-service.js' },
+  { src: 'pwa/tag-relations-pwa-manifest.json', dest: 'dist/tag-relations-pwa/manifest.json' },
+  { src: 'pwa/tag-relations-pwa-sw.js', dest: 'dist/tag-relations-pwa/sw.js' },
+  { src: 'desktop/src/assets/icons/png/256x256.png', dest: 'dist/tag-relations-pwa/icon192.png' },
+  { src: 'desktop/src/assets/icons/png/256x256.png', dest: 'dist/tag-relations-pwa/icon512.png' }
+];
+
 // Copy desktop app files
 const desktopFiles = [
   { src: 'desktop/src/css/index.css', dest: 'dist/css/index.css' },
@@ -73,7 +86,7 @@ function copyFile(src, dest) {
 }
 
 // Copy all files
-[...filesToCopy, ...desktopFiles].forEach(({ src, dest }) => {
+[...filesToCopy, ...tagRelationsPwaFiles, ...desktopFiles].forEach(({ src, dest }) => {
   copyFile(src, dest);
 });
 

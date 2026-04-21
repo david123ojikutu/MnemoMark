@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MnemoMark Tag Relations</title>
+    <link rel="stylesheet" href="css/tag-relations.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <main class="container">
+        <header class="page-header">
+            <h1>Tag Relations Map</h1>
+            <p class="subtitle">Visual graph of parent and child tag links</p>
+        </header>
+
+        <section class="controls">
+            <button id="refreshGraphBtn" class="btn btn-primary">Refresh Graph</button>
+            <span id="graphMeta" class="graph-meta">0 tags</span>
+            <span class="legend">
+                <span class="legend-arrow"></span>
+                parent to child
+            </span>
+        </section>
+
+        <section id="graphFrame" class="graph-frame">
+            <svg id="relationsSvg" class="relations-svg" role="img" aria-label="Tag relation graph"></svg>
+        </section>
+    </main>
+
+    <script src="js/auth-config.js"></script>
+    <script src="js/auth-service.js"></script>
+    <script src="js/tag-relations.js"></script>
+</body>
+</html>

@@ -11,6 +11,8 @@
     const customTitlebar = require('custom-electron-titlebar');
     const TAGS_TAB_PATH = 'mnemomark://tags-and-highlights';
     const TAGS_TAB_LABEL = 'Tags and Highlights';
+    const RELATIONS_TAB_PATH = 'mnemomark://tag-relations';
+    const RELATIONS_TAB_LABEL = 'Tag Relations Map';
 
     class HighlightManager {
 
@@ -1020,11 +1022,18 @@
             if (this._isTagsTab(pathName)) {
                 return TAGS_TAB_LABEL;
             }
+            if (this._isRelationsTab(pathName)) {
+                return RELATIONS_TAB_LABEL;
+            }
             return pathName.substring(pathName.lastIndexOf('\\') + 1);
         }
 
         _isTagsTab(pathName) {
             return pathName === TAGS_TAB_PATH;
+        }
+
+        _isRelationsTab(pathName) {
+            return pathName === RELATIONS_TAB_PATH;
         }
 
         /**
@@ -1095,8 +1104,11 @@
                 }
             }
 
-            if (this._isTagsTab(pathName)) {
+            if (this._isTagsTab(pathName) || this._isRelationsTab(pathName)) {
                 this._viewerElement.src = 'tags-and-highlights.html';
+                if (this._isRelationsTab(pathName)) {
+                    this._viewerElement.src = 'tag-relations.html';
+                }
                 this._viewerElement.onload = () => {
                     this._highlightManager.reset();
                     this._hideHighlightButton();
@@ -1242,6 +1254,14 @@
             this._addTab(TAGS_TAB_PATH);
         }
 
+        _openTagRelationsTab() {
+            if (this._paths.indexOf(RELATIONS_TAB_PATH) >= 0) {
+                this._switchTab(this._tabs[this._paths.indexOf(RELATIONS_TAB_PATH)]);
+                return;
+            }
+            this._addTab(RELATIONS_TAB_PATH);
+        }
+
         /**
          * @desc Updates title
          * @param {*} pathName
@@ -1332,6 +1352,11 @@
             ipcRenderer.on('open-tags-highlights', () => {
                 this._propagateClick();
                 this._openTagsHighlightsTab();
+            });
+
+            ipcRenderer.on('open-tag-relations', () => {
+                this._propagateClick();
+                this._openTagRelationsTab();
             });
         }
 

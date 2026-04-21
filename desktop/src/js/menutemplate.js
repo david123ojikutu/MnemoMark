@@ -78,6 +78,14 @@ exports.buildMenuTemplate = function (win) {
             }
         },
         {
+            label: 'Tag Relations Map',
+            id: 'open-tag-relations',
+            accelerator: 'CmdOrCtrl+Shift+R',
+            click() {
+                win.webContents.send('open-tag-relations');
+            }
+        },
+        {
             label: 'View',
             submenu: [
                 {

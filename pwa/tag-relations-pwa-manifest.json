@@ -1,0 +1,25 @@
+{
+  "name": "MnemoMark Tag Relations",
+  "short_name": "Tag Relations",
+  "description": "Sign in and view your MnemoMark tag hierarchy as an interactive graph.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#11181f",
+  "theme_color": "#11181f",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

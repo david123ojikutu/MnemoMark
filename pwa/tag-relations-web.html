@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#11181f">
+  <title>MnemoMark Tag Relations</title>
+  <link rel="stylesheet" href="tag-relations-web.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <h1>MnemoMark Tag Relations</h1>
+      <p>Standalone web page to sign in and view your full tag hierarchy.</p>
+    </header>
+
+    <section class="card auth-card">
+      <div id="signedOutView">
+        <form id="signInForm" class="auth-form">
+          <label>Email</label>
+          <input id="signInEmail" type="email" required>
+          <label>Password</label>
+          <input id="signInPassword" type="password" required>
+          <button id="signInSubmit" class="btn btn-primary" type="submit">Sign In</button>
+        </form>
+      </div>
+
+      <div id="signedInView" hidden>
+        <div class="signed-in-row">
+          <span>Signed in as <strong id="userEmail"></strong></span>
+          <div class="signed-in-actions">
+            <button id="refreshBtn" class="btn btn-secondary" type="button">Refresh Tags</button>
+            <button id="signOutBtn" class="btn btn-danger" type="button">Sign Out</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="status" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card graph-card">
+      <div class="graph-toolbar">
+        <span id="meta" class="meta">0 tags</span>
+        <div class="graph-controls">
+          <button id="zoomOutBtn" class="btn btn-secondary btn-small" type="button">-</button>
+          <button id="zoomInBtn" class="btn btn-secondary btn-small" type="button">+</button>
+          <button id="resetViewBtn" class="btn btn-secondary btn-small" type="button">Reset</button>
+          <button id="fitViewBtn" class="btn btn-secondary btn-small" type="button">Fit</button>
+        </div>
+        <span class="legend"><span class="legend-line"></span> parent to child</span>
+      </div>
+      <div id="graphWrap" class="graph-wrap">
+        <svg id="graphSvg" class="graph-svg" role="img" aria-label="Tag relationship graph"></svg>
+      </div>
+    </section>
+  </main>
+
+  <script src="auth-config.js"></script>
+  <script src="auth-service.js"></script>
+  <script src="tag-relations-web.js"></script>
+</body>
+</html>
