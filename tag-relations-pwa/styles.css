@@ -33,26 +33,6 @@ body {
   padding: 14px;
 }
 
-.auth-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  border: 1px solid #33506a;
-  background: #1b2a38;
-  color: #cee5f7;
-  border-radius: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
-.tab-btn.active {
-  background: #2b455d;
-}
-
 .auth-form {
   display: grid;
   gap: 8px;
@@ -147,7 +127,7 @@ input {
 .legend-line {
   width: 28px;
   height: 2px;
-  background: #a78bfa;
+  background: #8b5cf6;
   position: relative;
 }
 
@@ -160,15 +140,15 @@ input {
   height: 0;
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
-  border-left: 6px solid #a78bfa;
+  border-left: 6px solid #8b5cf6;
 }
 
 .graph-wrap {
-  min-height: 340px;
-  max-height: 72vh;
+  min-height: 380px;
+  max-height: 76vh;
   border: 1px solid #33475b;
   border-radius: 8px;
-  background: #e8e8ec;
+  background: #ececf2;
   overflow: auto;
   cursor: grab;
 }
