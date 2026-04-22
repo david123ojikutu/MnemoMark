@@ -41,7 +41,7 @@ function renderTagRelations() {
         const txt = document.createElementNS(svgNS, "text");
         txt.setAttribute("x", "50%");
         txt.setAttribute("y", "50%");
-        txt.setAttribute("fill", "#8f8f8f");
+        txt.setAttribute("fill", "#5c5c66");
         txt.setAttribute("text-anchor", "middle");
         txt.textContent = "No tags available for this account yet.";
         svg.appendChild(txt);
@@ -49,126 +49,189 @@ function renderTagRelations() {
         return;
     }
 
-    const tagsById = new Map(tags.map(tag => [tag.id, tag]));
-    const memoDepth = new Map();
-    function getDepth(tagId, chain = new Set()) {
-        if (memoDepth.has(tagId)) return memoDepth.get(tagId);
-        if (chain.has(tagId)) return 0;
-        chain.add(tagId);
-        const tag = tagsById.get(tagId);
-        const parentIds = (tag && Array.isArray(tag.parentIds)) ? tag.parentIds : [];
-        let depth = 0;
-        parentIds.forEach(parentId => {
-            if (!tagsById.has(parentId)) return;
-            depth = Math.max(depth, getDepth(parentId, chain) + 1);
-        });
-        chain.delete(tagId);
-        memoDepth.set(tagId, depth);
-        return depth;
+    const byId = new Map(tags.map((tag) => [tag.id, tag]));
+    const fontSize = 14;
+    const lineHeight = 20;
+    const rowGap = 10;
+    const channelWidth = 52;
+    const marginX = 36;
+    const marginY = 28;
+    const busInset = 14;
+    const edgeStroke = "#a78bfa";
+    const edgeWidth = "1.35";
+    const labelFill = "#1a1a1f";
+
+    function textWidthApprox(tag) {
+        const name = tag?.name || "";
+        return Math.min(420, Math.max(24, 6 + name.length * (fontSize * 0.52)));
     }
 
-    const levels = new Map();
-    tags.forEach(tag => {
-        const depth = getDepth(tag.id);
-        if (!levels.has(depth)) levels.set(depth, []);
-        levels.get(depth).push(tag);
+    function validParentIds(tag) {
+        return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
+    }
+
+    const depthCap = Math.max(tags.length, 1);
+    const depth = new Map();
+    tags.forEach((t) => {
+        const parents = validParentIds(t);
+        depth.set(t.id, parents.length ? 1 : 0);
     });
-    levels.forEach(list => list.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+    let changed = true;
+    let guard = 0;
+    while (changed && guard < tags.length + 12) {
+        guard += 1;
+        changed = false;
+        tags.forEach((t) => {
+            const parents = validParentIds(t);
+            const raw = parents.length === 0 ? 0 : Math.max(...parents.map((pid) => depth.get(pid) ?? 0)) + 1;
+            const nextDepth = Math.min(depthCap, raw);
+            if (depth.get(t.id) !== nextDepth) {
+                depth.set(t.id, nextDepth);
+                changed = true;
+            }
+        });
+    }
+
+    const layers = new Map();
+    let maxDepth = 0;
+    tags.forEach((t) => {
+        const d = depth.get(t.id) ?? 0;
+        maxDepth = Math.max(maxDepth, d);
+        if (!layers.has(d)) layers.set(d, []);
+        layers.get(d).push(t);
+    });
+    layers.forEach((list) => list.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+
+    const colWidth = [];
+    for (let d = 0; d <= maxDepth; d++) {
+        const row = layers.get(d) || [];
+        colWidth[d] = row.reduce((m, tag) => Math.max(m, textWidthApprox(tag)), 80);
+    }
+
+    const colLeft = [];
+    colLeft[0] = marginX;
+    for (let d = 1; d <= maxDepth; d++) {
+        colLeft[d] = colLeft[d - 1] + colWidth[d - 1] + channelWidth;
+    }
 
     const layout = new Map();
-    const boxHeight = 44;
-    const columnGap = 92;
-    const rowGap = 30;
-    let x = 40;
-    const sortedDepths = Array.from(levels.keys()).sort((a, b) => a - b);
-    sortedDepths.forEach(depth => {
-        const levelTags = levels.get(depth) || [];
-        const levelWidth = Math.max(
-            130,
-            ...levelTags.map(tag => Math.min(280, 36 + ((tag.name || "").length * 8)))
-        );
-        levelTags.forEach((tag, index) => {
+    const colBottom = [];
+
+    function medianParentCenterY(tag) {
+        const dc = depth.get(tag.id) ?? 0;
+        const ps = validParentIds(tag).filter((pid) => (depth.get(pid) ?? 0) < dc);
+        const ys = ps
+            .map((pid) => {
+                const n = layout.get(pid);
+                return n ? n.y + n.height / 2 : null;
+            })
+            .filter((v) => v != null)
+            .sort((a, b) => a - b);
+        if (!ys.length) return 0;
+        const mid = Math.floor((ys.length - 1) / 2);
+        return ys.length % 2 ? ys[mid] : (ys[mid] + ys[mid + 1]) / 2;
+    }
+
+    for (let d = 0; d <= maxDepth; d++) {
+        const row = layers.get(d) || [];
+        if (d > 0) {
+            row.sort((a, b) => {
+                const ma = medianParentCenterY(a);
+                const mb = medianParentCenterY(b);
+                if (Math.abs(ma - mb) > 0.5) return ma - mb;
+                return (a.name || "").localeCompare(b.name || "");
+            });
+        }
+        let y = marginY;
+        row.forEach((tag) => {
+            const w = textWidthApprox(tag);
+            const h = lineHeight;
             layout.set(tag.id, {
-                x,
-                y: 40 + index * (boxHeight + rowGap),
-                width: levelWidth,
-                height: boxHeight,
+                x: colLeft[d],
+                y,
+                width: w,
+                height: h,
                 tag
             });
+            y += h + rowGap;
         });
-        x += levelWidth + columnGap;
-    });
+        colBottom[d] = y;
+    }
 
-    const usedWidth = Math.max(x, graphFrame.clientWidth || 900);
-    const usedHeight = Math.max(
-        220,
-        ...Array.from(layout.values()).map(node => node.y + node.height + 40)
-    );
-    svg.setAttribute("width", String(usedWidth));
-    svg.setAttribute("height", String(usedHeight));
-    svg.setAttribute("viewBox", `0 0 ${usedWidth} ${usedHeight}`);
+    const height = Math.max(200, Math.max(...colBottom.map((b) => b)) + marginY);
+    const width = colLeft[maxDepth] + colWidth[maxDepth] + marginX + 24;
+
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
     const defs = document.createElementNS(svgNS, "defs");
-    const marker = document.createElementNS(svgNS, "marker");
-    marker.setAttribute("id", "relation-arrow");
-    marker.setAttribute("viewBox", "0 0 10 10");
-    marker.setAttribute("refX", "9");
-    marker.setAttribute("refY", "5");
-    marker.setAttribute("markerWidth", "7");
-    marker.setAttribute("markerHeight", "7");
-    marker.setAttribute("orient", "auto-start-reverse");
-    const markerPath = document.createElementNS(svgNS, "path");
-    markerPath.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-    markerPath.setAttribute("fill", "#6ab5ff");
-    marker.appendChild(markerPath);
-    defs.appendChild(marker);
+    const gridPat = document.createElementNS(svgNS, "pattern");
+    gridPat.setAttribute("id", "tagRelationsGrid");
+    gridPat.setAttribute("width", "20");
+    gridPat.setAttribute("height", "20");
+    gridPat.setAttribute("patternUnits", "userSpaceOnUse");
+    const gridPath = document.createElementNS(svgNS, "path");
+    gridPath.setAttribute("d", "M 20 0 L 0 0 0 20");
+    gridPath.setAttribute("fill", "none");
+    gridPath.setAttribute("stroke", "#c8c8d2");
+    gridPath.setAttribute("stroke-width", "0.55");
+    gridPat.appendChild(gridPath);
+    defs.appendChild(gridPat);
     svg.appendChild(defs);
 
-    tags.forEach(child => {
+    const gridBg = document.createElementNS(svgNS, "rect");
+    gridBg.setAttribute("x", "0");
+    gridBg.setAttribute("y", "0");
+    gridBg.setAttribute("width", String(width));
+    gridBg.setAttribute("height", String(height));
+    gridBg.setAttribute("fill", "url(#tagRelationsGrid)");
+    svg.appendChild(gridBg);
+
+    function centerY(node) {
+        return node.y + node.height / 2;
+    }
+
+    tags.forEach((child) => {
         const childNode = layout.get(child.id);
-        if (!childNode || !Array.isArray(child.parentIds)) return;
-        child.parentIds.forEach(parentId => {
+        if (!childNode) return;
+        const parents = validParentIds(child).filter((pid) => {
+            const dp = depth.get(pid) ?? 0;
+            const dc = depth.get(child.id) ?? 0;
+            return dp < dc;
+        });
+        parents.forEach((parentId) => {
             const parentNode = layout.get(parentId);
             if (!parentNode) return;
-            const sx = parentNode.x + parentNode.width;
-            const sy = parentNode.y + (parentNode.height / 2);
-            const ex = childNode.x;
-            const ey = childNode.y + (childNode.height / 2);
-            const curve = Math.max((ex - sx) * 0.45, 40);
+            const pr = parentNode.x + parentNode.width;
+            const py = centerY(parentNode);
+            const cl = childNode.x;
+            const cy = centerY(childNode);
+            let busX = cl - busInset;
+            const minBus = pr + 8;
+            if (busX < minBus) busX = minBus;
+            if (busX >= cl) busX = Math.max(pr + 4, cl - 4);
+            const d = `M ${pr} ${py} L ${busX} ${py} L ${busX} ${cy} L ${cl} ${cy}`;
             const edge = document.createElementNS(svgNS, "path");
-            edge.setAttribute("d", `M ${sx} ${sy} C ${sx + curve} ${sy}, ${ex - curve} ${ey}, ${ex} ${ey}`);
-            edge.setAttribute("stroke", "#6ab5ff");
-            edge.setAttribute("stroke-width", "2");
+            edge.setAttribute("d", d);
             edge.setAttribute("fill", "none");
-            edge.setAttribute("marker-end", "url(#relation-arrow)");
+            edge.setAttribute("stroke", edgeStroke);
+            edge.setAttribute("stroke-width", edgeWidth);
+            edge.setAttribute("stroke-linejoin", "round");
             svg.appendChild(edge);
         });
     });
 
-    Array.from(layout.values()).forEach(node => {
-        const g = document.createElementNS(svgNS, "g");
-        const rect = document.createElementNS(svgNS, "rect");
-        rect.setAttribute("x", String(node.x));
-        rect.setAttribute("y", String(node.y));
-        rect.setAttribute("width", String(node.width));
-        rect.setAttribute("height", String(node.height));
-        rect.setAttribute("rx", "8");
-        rect.setAttribute("fill", "#252525");
-        rect.setAttribute("stroke", node.tag.color || "#4caf50");
-        rect.setAttribute("stroke-width", "2");
-        g.appendChild(rect);
-
-        const label = document.createElementNS(svgNS, "text");
-        label.setAttribute("x", String(node.x + (node.width / 2)));
-        label.setAttribute("y", String(node.y + (node.height / 2) + 5));
-        label.setAttribute("fill", "#ededed");
-        label.setAttribute("font-size", "14");
-        label.setAttribute("font-family", "Segoe UI, sans-serif");
-        label.setAttribute("text-anchor", "middle");
-        label.textContent = node.tag.name || "(unnamed)";
-        g.appendChild(label);
-
-        svg.appendChild(g);
+    Array.from(layout.values()).forEach((node) => {
+        const text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", String(node.x));
+        text.setAttribute("y", String(node.y + node.height * 0.72));
+        text.setAttribute("text-anchor", "start");
+        text.setAttribute("fill", labelFill);
+        text.setAttribute("font-size", String(fontSize));
+        text.setAttribute("font-family", "Segoe UI, system-ui, sans-serif");
+        text.textContent = node.tag.name || "(unnamed)";
+        svg.appendChild(text);
     });
 
     if (graphMeta) graphMeta.textContent = `${tags.length} tags`;

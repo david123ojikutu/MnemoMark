@@ -77,7 +77,7 @@ body {
 .legend-arrow {
   width: 30px;
   height: 2px;
-  background: #6ab5ff;
+  background: #a78bfa;
   position: relative;
 }
 
@@ -85,16 +85,18 @@ body {
   content: "";
   position: absolute;
   right: -1px;
-  top: -4px;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 8px solid #6ab5ff;
+  top: -3px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid #a78bfa;
 }
 
 .graph-frame {
   border: 1px solid #333;
   border-radius: 8px;
-  background: #151515;
+  background: #e8e8ec;
   min-height: 520px;
   overflow: auto;
 }
