@@ -1,0 +1,14 @@
+{
+  "name": "mnemomark-tag-relations-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone Tag Relations PWA (separate from the main MnemoMark PWA)",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "author": {
+    "name": "MnemoMark",
+    "email": "david123ojikutu@users.noreply.github.com"
+  },
+  "license": "MIT"
+}

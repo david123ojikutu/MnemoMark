@@ -30,6 +30,27 @@ function syncThenRender() {
     renderTagRelations();
 }
 
+function roundedConnectorPath(pr, py, busX, cy, cl, rMax) {
+    const down = cy >= py;
+    if (Math.abs(cy - py) < 0.25) {
+        return `M ${pr} ${py} L ${cl} ${cy}`;
+    }
+    let r = Math.min(
+        rMax,
+        Math.max(2.5, (busX - pr) * 0.34),
+        Math.max(2.5, Math.abs(cy - py) * 0.34),
+        Math.max(2.5, (cl - busX) * 0.34)
+    );
+    r = Math.min(r, (busX - pr) / 2 - 0.5, (cl - busX) / 2 - 0.5, Math.abs(cy - py) / 2 - 0.5);
+    if (r < 2.5 || busX - pr < 8 || cl - busX < 8) {
+        return `M ${pr} ${py} L ${busX} ${py} L ${busX} ${cy} L ${cl} ${cy}`;
+    }
+    if (down) {
+        return `M ${pr} ${py} L ${busX - r} ${py} A ${r} ${r} 0 0 1 ${busX} ${py + r} L ${busX} ${cy - r} A ${r} ${r} 0 0 1 ${busX + r} ${cy} L ${cl} ${cy}`;
+    }
+    return `M ${pr} ${py} L ${busX - r} ${py} A ${r} ${r} 0 0 0 ${busX} ${py - r} L ${busX} ${cy + r} A ${r} ${r} 0 0 0 ${busX + r} ${cy} L ${cl} ${cy}`;
+}
+
 function renderTagRelations() {
     if (!svg || !graphFrame) return;
     const svgNS = "http://www.w3.org/2000/svg";
@@ -50,20 +71,21 @@ function renderTagRelations() {
     }
 
     const byId = new Map(tags.map((tag) => [tag.id, tag]));
-    const fontSize = 14;
-    const lineHeight = 20;
-    const rowGap = 10;
-    const channelWidth = 52;
-    const marginX = 36;
-    const marginY = 28;
-    const busInset = 14;
-    const edgeStroke = "#a78bfa";
-    const edgeWidth = "1.35";
-    const labelFill = "#1a1a1f";
+    const fontSize = 15;
+    const lineHeight = 30;
+    const rowGap = 22;
+    const channelWidth = 96;
+    const marginX = 52;
+    const marginY = 44;
+    const busInset = 28;
+    const cornerRadius = 10;
+    const edgeStroke = "#7c3aed";
+    const edgeWidth = "1.5";
+    const labelFill = "#141418";
 
     function textWidthApprox(tag) {
         const name = tag?.name || "";
-        return Math.min(420, Math.max(24, 6 + name.length * (fontSize * 0.52)));
+        return Math.min(440, Math.max(28, 8 + name.length * (fontSize * 0.52)));
     }
 
     function validParentIds(tag) {
@@ -105,7 +127,7 @@ function renderTagRelations() {
     const colWidth = [];
     for (let d = 0; d <= maxDepth; d++) {
         const row = layers.get(d) || [];
-        colWidth[d] = row.reduce((m, tag) => Math.max(m, textWidthApprox(tag)), 80);
+        colWidth[d] = row.reduce((m, tag) => Math.max(m, textWidthApprox(tag)), 96);
     }
 
     const colLeft = [];
@@ -158,8 +180,8 @@ function renderTagRelations() {
         colBottom[d] = y;
     }
 
-    const height = Math.max(200, Math.max(...colBottom.map((b) => b)) + marginY);
-    const width = colLeft[maxDepth] + colWidth[maxDepth] + marginX + 24;
+    const height = Math.max(220, Math.max(...colBottom.map((b) => b)) + marginY);
+    const width = colLeft[maxDepth] + colWidth[maxDepth] + marginX + 40;
 
     svg.setAttribute("width", String(width));
     svg.setAttribute("height", String(height));
@@ -168,13 +190,13 @@ function renderTagRelations() {
     const defs = document.createElementNS(svgNS, "defs");
     const gridPat = document.createElementNS(svgNS, "pattern");
     gridPat.setAttribute("id", "tagRelationsGrid");
-    gridPat.setAttribute("width", "20");
-    gridPat.setAttribute("height", "20");
+    gridPat.setAttribute("width", "24");
+    gridPat.setAttribute("height", "24");
     gridPat.setAttribute("patternUnits", "userSpaceOnUse");
     const gridPath = document.createElementNS(svgNS, "path");
-    gridPath.setAttribute("d", "M 20 0 L 0 0 0 20");
+    gridPath.setAttribute("d", "M 24 0 L 0 0 0 24");
     gridPath.setAttribute("fill", "none");
-    gridPath.setAttribute("stroke", "#c8c8d2");
+    gridPath.setAttribute("stroke", "#c6c6d4");
     gridPath.setAttribute("stroke-width", "0.55");
     gridPat.appendChild(gridPath);
     defs.appendChild(gridPat);
@@ -208,15 +230,16 @@ function renderTagRelations() {
             const cl = childNode.x;
             const cy = centerY(childNode);
             let busX = cl - busInset;
-            const minBus = pr + 8;
+            const minBus = pr + 12;
             if (busX < minBus) busX = minBus;
-            if (busX >= cl) busX = Math.max(pr + 4, cl - 4);
-            const d = `M ${pr} ${py} L ${busX} ${py} L ${busX} ${cy} L ${cl} ${cy}`;
+            if (busX >= cl) busX = Math.max(pr + 6, cl - 6);
+            const dPath = roundedConnectorPath(pr, py, busX, cy, cl, cornerRadius);
             const edge = document.createElementNS(svgNS, "path");
-            edge.setAttribute("d", d);
+            edge.setAttribute("d", dPath);
             edge.setAttribute("fill", "none");
             edge.setAttribute("stroke", edgeStroke);
             edge.setAttribute("stroke-width", edgeWidth);
+            edge.setAttribute("stroke-linecap", "round");
             edge.setAttribute("stroke-linejoin", "round");
             svg.appendChild(edge);
         });

@@ -1,0 +1,47 @@
+name: Tag Relations PWA Release
+
+on:
+  push:
+    tags:
+      - "tag-relations-v*"
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release-zip:
+    name: Zip standalone PWA and attach to GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tag Relations PWA
+        run: node tag-relations-pwa/build.js
+
+      - name: Create archive
+        run: |
+          cd dist/tag-relations-pwa
+          zip -r "$GITHUB_WORKSPACE/tag-relations-pwa-${{ github.ref_name }}.zip" .
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Tag Relations PWA ${{ github.ref_name }}
+          generate_release_notes: true
+          files: tag-relations-pwa-${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

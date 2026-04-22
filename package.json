@@ -4,6 +4,7 @@
   "description": "MnemoMark Progressive Web App",
   "scripts": {
     "build": "node build.js",
+    "build:tag-relations": "node tag-relations-pwa/build.js",
     "pwa:package": "npx @pwabuilder/pwabuilder --url https://david123ojikutu.github.io/MnemoMark/ --platform windows --platform android --out ./pwa/packages",
     "pwa:package-tag-relations": "npx @pwabuilder/pwabuilder --url https://david123ojikutu.github.io/MnemoMark/tag-relations-pwa/ --platform windows --platform android --out ./pwa/packages-tag-relations",
     "firebase:login": "npx firebase-tools login",
