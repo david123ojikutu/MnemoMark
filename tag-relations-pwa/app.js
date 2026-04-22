@@ -178,7 +178,6 @@ function renderTagRelations() {
 
   const fontSize = 15;
   const lineHeight = 30;
-  const rowGap = 22;
   const channelWidth = 96;
   const marginX = 52;
   const marginY = 44;
@@ -195,6 +194,12 @@ function renderTagRelations() {
 
   function validParentIds(tag) {
     return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
+  }
+
+  /** Same as valid parents but preserves `parentIds` order (main branch = first eligible parent). */
+  function orderedValidParents(tag) {
+    const allow = new Set(validParentIds(tag));
+    return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => allow.has(pid));
   }
 
   const depthCap = Math.max(tags.length, 1);
@@ -219,20 +224,15 @@ function renderTagRelations() {
     });
   }
 
-  const layers = new Map();
   let maxDepth = 0;
   tags.forEach((t) => {
-    const d = depth.get(t.id) ?? 0;
-    maxDepth = Math.max(maxDepth, d);
-    if (!layers.has(d)) layers.set(d, []);
-    layers.get(d).push(t);
+    maxDepth = Math.max(maxDepth, depth.get(t.id) ?? 0);
   });
-  layers.forEach((list) => list.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
 
   const colWidth = [];
   for (let d = 0; d <= maxDepth; d++) {
-    const row = layers.get(d) || [];
-    colWidth[d] = row.reduce((m, tag) => Math.max(m, textWidthApprox(tag)), 96);
+    const atDepth = tags.filter((t) => (depth.get(t.id) ?? 0) === d);
+    colWidth[d] = atDepth.reduce((m, tag) => Math.max(m, textWidthApprox(tag)), 96);
   }
 
   const colLeft = [];
@@ -241,51 +241,115 @@ function renderTagRelations() {
     colLeft[d] = colLeft[d - 1] + colWidth[d - 1] + channelWidth;
   }
 
-  const layout = new Map();
-  const colBottom = [];
-
-  function medianParentCenterY(tag) {
+  /**
+   * Layout tree: each tag hangs under one "classification" parent — first in `parentIds` with strictly lower depth.
+   * If none, the tag is a layout root (own clade) — avoids cycles / same-depth parent loops.
+   */
+  function primaryParentId(tag) {
+    const ordered = orderedValidParents(tag);
+    if (!ordered.length) return null;
     const dc = depth.get(tag.id) ?? 0;
-    const ps = validParentIds(tag).filter((pid) => (depth.get(pid) ?? 0) < dc);
-    const ys = ps
-      .map((pid) => {
-        const n = layout.get(pid);
-        return n ? n.y + n.height / 2 : null;
-      })
-      .filter((v) => v != null)
-      .sort((a, b) => a - b);
-    if (!ys.length) return 0;
-    const mid = Math.floor((ys.length - 1) / 2);
-    return ys.length % 2 ? ys[mid] : (ys[mid] + ys[mid + 1]) / 2;
+    for (const pid of ordered) {
+      if ((depth.get(pid) ?? 0) < dc) return pid;
+    }
+    return null;
   }
 
-  for (let d = 0; d <= maxDepth; d++) {
-    const row = layers.get(d) || [];
-    if (d > 0) {
-      row.sort((a, b) => {
-        const ma = medianParentCenterY(a);
-        const mb = medianParentCenterY(b);
-        if (Math.abs(ma - mb) > 0.5) return ma - mb;
-        return (a.name || "").localeCompare(b.name || "");
-      });
+  const layoutChildren = new Map();
+  tags.forEach((t) => {
+    const pp = primaryParentId(t);
+    if (!pp) return;
+    if (!layoutChildren.has(pp)) layoutChildren.set(pp, []);
+    layoutChildren.get(pp).push(t);
+  });
+  layoutChildren.forEach((list) => list.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+
+  const subGap = 20;
+  const rootGap = 40;
+  const leafBand = lineHeight + 12;
+  const heightMemo = new Map();
+
+  function subtreePixelHeight(id) {
+    if (heightMemo.has(id)) return heightMemo.get(id);
+    const kids = layoutChildren.get(id) || [];
+    if (!kids.length) {
+      heightMemo.set(id, leafBand);
+      return leafBand;
     }
-    let y = marginY;
-    row.forEach((tag) => {
-      const w = textWidthApprox(tag);
-      const h = lineHeight;
+    let s = 0;
+    kids.forEach((k, i) => {
+      s += subtreePixelHeight(k.id);
+      if (i < kids.length - 1) s += subGap;
+    });
+    heightMemo.set(id, s);
+    return s;
+  }
+
+  tags.forEach((t) => subtreePixelHeight(t.id));
+
+  let roots = tags
+    .filter((t) => primaryParentId(t) === null)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  if (!roots.length) {
+    const pick = tags
+      .slice()
+      .sort(
+        (a, b) =>
+          (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0) ||
+          (a.name || "").localeCompare(b.name || "") ||
+          a.id.localeCompare(b.id)
+      )[0];
+    roots = pick ? [pick] : [];
+  }
+
+  const layout = new Map();
+
+  function placeNode(tag, y0, y1) {
+    const d = depth.get(tag.id) ?? 0;
+    const x = colLeft[d];
+    const w = textWidthApprox(tag);
+    const kids = (layoutChildren.get(tag.id) || []).slice();
+
+    if (!kids.length) {
+      const cy = (y0 + y1) / 2;
       layout.set(tag.id, {
-        x: colLeft[d],
-        y,
+        x,
+        y: cy - lineHeight / 2,
         width: w,
-        height: h,
+        height: lineHeight,
         tag
       });
-      y += h + rowGap;
+      return cy;
+    }
+
+    const total = kids.reduce((s, k) => s + subtreePixelHeight(k.id), 0) + (kids.length - 1) * subGap;
+    let cur = y0 + (y1 - y0 - total) / 2;
+    const centers = [];
+    kids.forEach((k, i) => {
+      const h = subtreePixelHeight(k.id);
+      const cy = placeNode(k, cur, cur + h);
+      centers.push(cy);
+      cur += h + (i < kids.length - 1 ? subGap : 0);
     });
-    colBottom[d] = y;
+    const pcy = centers.reduce((a, b) => a + b, 0) / centers.length;
+    layout.set(tag.id, {
+      x,
+      y: pcy - lineHeight / 2,
+      width: w,
+      height: lineHeight,
+      tag
+    });
+    return pcy;
   }
 
-  const height = Math.max(220, Math.max(...colBottom.map((b) => b)) + marginY);
+  let yCursor = marginY;
+  roots.forEach((r, i) => {
+    const h = subtreePixelHeight(r.id);
+    placeNode(r, yCursor, yCursor + h);
+    yCursor += h + (i < roots.length - 1 ? rootGap : 0);
+  });
+
+  const height = Math.max(220, yCursor + marginY);
   const width = colLeft[maxDepth] + colWidth[maxDepth] + marginX + 40;
 
   svg.setAttribute("width", String(width));
