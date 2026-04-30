@@ -1,0 +1,181 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #11181f;
+  color: #e8edf3;
+}
+
+.page {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.header p {
+  margin-top: 8px;
+  color: #aebdcb;
+}
+
+.card {
+  margin-top: 16px;
+  background: #17212b;
+  border: 1px solid #2c3f51;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid #33506a;
+  background: #1b2a38;
+  color: #cee5f7;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #2b455d;
+}
+
+.auth-form {
+  display: grid;
+  gap: 8px;
+  max-width: 440px;
+}
+
+input {
+  background: #0f171f;
+  color: #ebf5ff;
+  border: 1px solid #33475a;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.btn-primary {
+  background: #2f7af7;
+}
+
+.btn-secondary {
+  background: #4d5a66;
+}
+
+.btn-danger {
+  background: #be3d3d;
+}
+
+.signed-in-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.signed-in-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status {
+  margin-top: 10px;
+  min-height: 20px;
+  color: #9cc3e8;
+}
+
+.status.error {
+  color: #ff8f8f;
+}
+
+.graph-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.meta {
+  color: #9dd0ff;
+}
+
+.graph-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c0cfdd;
+  font-size: 13px;
+}
+
+.legend-line {
+  width: 28px;
+  height: 2px;
+  background: #65b8ff;
+  position: relative;
+}
+
+.legend-line::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #65b8ff;
+}
+
+.graph-wrap {
+  min-height: 340px;
+  max-height: 72vh;
+  border: 1px solid #33475b;
+  border-radius: 8px;
+  background: #0d141b;
+  overflow: auto;
+  cursor: grab;
+}
+
+.graph-wrap.dragging {
+  cursor: grabbing;
+}
+
+.graph-svg {
+  display: block;
+  min-width: 100%;
+}
