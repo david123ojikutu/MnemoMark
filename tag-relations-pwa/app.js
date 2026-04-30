@@ -183,9 +183,38 @@ function renderTagRelations() {
   const marginY = 44;
   const busInset = 28;
   const cornerRadius = 10;
-  const edgeStroke = "#7c3aed";
-  const edgeWidth = "1.5";
+  const edgeWidth = "2";
   const labelFill = "#141418";
+
+  // Color palette for parent-child connections - each parent gets a distinct color
+  const edgeColors = [
+    "#7c3aed", // Purple (original)
+    "#2563eb", // Blue
+    "#dc2626", // Red
+    "#16a34a", // Green
+    "#ca8a04", // Yellow
+    "#c2410c", // Orange
+    "#9333ea", // Violet
+    "#0891b2", // Cyan
+    "#be123c", // Rose
+    "#65a30d", // Lime
+    "#7c2d12", // Brown
+    "#4f46e5", // Indigo
+    "#059669", // Emerald
+    "#dc2626", // Red (duplicate for more variety)
+    "#7c3aed", // Purple (duplicate)
+    "#2563eb"  // Blue (duplicate)
+  ];
+
+  function getParentColor(parentId) {
+    // Use a simple hash of the parent ID to consistently assign colors
+    let hash = 0;
+    for (let i = 0; i < parentId.length; i++) {
+      hash = ((hash << 5) - hash) + parentId.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return edgeColors[Math.abs(hash) % edgeColors.length];
+  }
 
   function textWidthApprox(tag) {
     const name = tag?.name || "";
@@ -409,10 +438,23 @@ function renderTagRelations() {
       if (busX < minBus) busX = minBus;
       if (busX >= cl) busX = Math.max(pr + 6, cl - 6);
       const dPath = roundedConnectorPath(pr, py, busX, cy, cl, cornerRadius);
+
+      // Create background shadow for better delineation
+      const shadowEdge = document.createElementNS(svgNS, "path");
+      shadowEdge.setAttribute("d", dPath);
+      shadowEdge.setAttribute("fill", "none");
+      shadowEdge.setAttribute("stroke", "#000000");
+      shadowEdge.setAttribute("stroke-width", "3");
+      shadowEdge.setAttribute("stroke-linecap", "round");
+      shadowEdge.setAttribute("stroke-linejoin", "round");
+      shadowEdge.setAttribute("opacity", "0.3");
+      graphContent.appendChild(shadowEdge);
+
+      // Create main edge with parent-specific color
       const edge = document.createElementNS(svgNS, "path");
       edge.setAttribute("d", dPath);
       edge.setAttribute("fill", "none");
-      edge.setAttribute("stroke", edgeStroke);
+      edge.setAttribute("stroke", getParentColor(parentId));
       edge.setAttribute("stroke-width", edgeWidth);
       edge.setAttribute("stroke-linecap", "round");
       edge.setAttribute("stroke-linejoin", "round");

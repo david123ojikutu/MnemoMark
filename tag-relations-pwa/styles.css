@@ -127,7 +127,7 @@ input {
 .legend-line {
   width: 28px;
   height: 2px;
-  background: #8b5cf6;
+  background: linear-gradient(90deg, #7c3aed, #2563eb, #dc2626, #16a34a, #ca8a04, #c2410c);
   position: relative;
 }
 
