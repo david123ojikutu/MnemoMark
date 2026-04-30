@@ -151,6 +151,63 @@ function roundedConnectorPath(pr, py, busX, cy, cl, rMax) {
   return `M ${pr} ${py} L ${busX - r} ${py} A ${r} ${r} 0 0 0 ${busX} ${py - r} L ${busX} ${cy + r} A ${r} ${r} 0 0 0 ${busX + r} ${cy} L ${cl} ${cy}`;
 }
 
+/** Organic branch-like path with natural curves */
+function createBranchPath(pr, py, busX, cy, cl, rMax) {
+  const down = cy >= py;
+  const verticalDist = Math.abs(cy - py);
+  const horizontalDist = busX - pr;
+
+  // For very short connections, use simple line
+  if (verticalDist < 10 && horizontalDist < 20) {
+    return `M ${pr} ${py} L ${cl} ${cy}`;
+  }
+
+  // Create organic S-curve for longer branches
+  const midX = (pr + busX) / 2;
+  const midY1 = py + (down ? verticalDist * 0.3 : -verticalDist * 0.3);
+  const midY2 = cy + (down ? -verticalDist * 0.2 : verticalDist * 0.2);
+
+  // Add some randomness for organic feel (but deterministic based on positions)
+  const seed = Math.sin(pr * py * cl * cy) * 1000;
+  const offset1 = (seed % 3) - 1.5;
+  const offset2 = ((seed * 7) % 4) - 2;
+
+  const cp1x = pr + horizontalDist * 0.4 + offset1;
+  const cp1y = py + offset1;
+  const cp2x = busX - horizontalDist * 0.3 + offset2;
+  const cp2y = cy - verticalDist * 0.4 + offset2;
+
+  return `M ${pr} ${py} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${cl} ${cy}`;
+}
+
+/** Background path for branch separation */
+function createBranchBackgroundPath(pr, py, busX, cy, cl, padding) {
+  const down = cy >= py;
+  const verticalDist = Math.abs(cy - py);
+
+  if (verticalDist < 10) {
+    // Simple expanded line for short connections
+    return `M ${pr - padding} ${py - padding} L ${cl + padding} ${cy + padding} L ${cl + padding} ${cy - padding} L ${pr - padding} ${py + padding} Z`;
+  }
+
+  // Create expanded curved path
+  const midX = (pr + busX) / 2;
+  const seed = Math.sin(pr * py * cl * cy) * 1000;
+  const offset1 = (seed % 3) - 1.5;
+  const offset2 = ((seed * 7) % 4) - 2;
+
+  const cp1x = pr + (busX - pr) * 0.4 + offset1;
+  const cp1y = py + offset1;
+  const cp2x = busX - (busX - pr) * 0.3 + offset2;
+  const cp2y = cy - verticalDist * 0.4 + offset2;
+
+  // Create parallel curves for background
+  const outerOffset = padding;
+  const innerOffset = -padding * 0.5;
+
+  return `M ${pr - outerOffset} ${py - outerOffset} C ${cp1x - outerOffset} ${cp1y - outerOffset} ${cp2x - outerOffset} ${cp2y - outerOffset} ${cl - innerOffset} ${cy - innerOffset} L ${cl + innerOffset} ${cy + innerOffset} C ${cp2x + outerOffset} ${cp2y + outerOffset} ${cp1x + outerOffset} ${cp1y + outerOffset} ${pr + outerOffset} ${py + outerOffset} Z`;
+}
+
 function renderTagRelations() {
   if (!els.graphSvg || !els.graphWrap) return;
   const svg = els.graphSvg;
@@ -392,27 +449,36 @@ function renderTagRelations() {
   svg.appendChild(graphContent);
 
   const defs = document.createElementNS(svgNS, "defs");
-  const gridPat = document.createElementNS(svgNS, "pattern");
-  gridPat.setAttribute("id", "tagRelationsGrid");
-  gridPat.setAttribute("width", "24");
-  gridPat.setAttribute("height", "24");
-  gridPat.setAttribute("patternUnits", "userSpaceOnUse");
-  const gridPath = document.createElementNS(svgNS, "path");
-  gridPath.setAttribute("d", "M 24 0 L 0 0 0 24");
-  gridPath.setAttribute("fill", "none");
-  gridPath.setAttribute("stroke", "#c6c6d4");
-  gridPath.setAttribute("stroke-width", "0.55");
-  gridPat.appendChild(gridPath);
-  defs.appendChild(gridPat);
+
+  // Create subtle radial gradient for background instead of grid
+  const bgGradient = document.createElementNS(svgNS, "radialGradient");
+  bgGradient.setAttribute("id", "treeBgGradient");
+  bgGradient.setAttribute("cx", "50%");
+  bgGradient.setAttribute("cy", "50%");
+  bgGradient.setAttribute("r", "50%");
+
+  const stop1 = document.createElementNS(svgNS, "stop");
+  stop1.setAttribute("offset", "0%");
+  stop1.setAttribute("style", "stop-color:#1a1a2e;stop-opacity:1");
+  bgGradient.appendChild(stop1);
+
+  const stop2 = document.createElementNS(svgNS, "stop");
+  stop2.setAttribute("offset", "100%");
+  stop2.setAttribute("style", "stop-color:#16213e;stop-opacity:1");
+  bgGradient.appendChild(stop2);
+
+  defs.appendChild(bgGradient);
   graphContent.appendChild(defs);
 
-  const gridBg = document.createElementNS(svgNS, "rect");
-  gridBg.setAttribute("x", "0");
-  gridBg.setAttribute("y", "0");
-  gridBg.setAttribute("width", String(width));
-  gridBg.setAttribute("height", String(height));
-  gridBg.setAttribute("fill", "url(#tagRelationsGrid)");
-  graphContent.appendChild(gridBg);
+  // Subtle background instead of harsh grid
+  const bgRect = document.createElementNS(svgNS, "rect");
+  bgRect.setAttribute("x", "0");
+  bgRect.setAttribute("y", "0");
+  bgRect.setAttribute("width", String(width));
+  bgRect.setAttribute("height", String(height));
+  bgRect.setAttribute("fill", "url(#treeBgGradient)");
+  bgRect.setAttribute("opacity", "0.3");
+  graphContent.appendChild(bgRect);
 
   function centerY(node) {
     return node.y + node.height / 2;
@@ -437,28 +503,42 @@ function renderTagRelations() {
       const minBus = pr + 12;
       if (busX < minBus) busX = minBus;
       if (busX >= cl) busX = Math.max(pr + 6, cl - 6);
-      const dPath = roundedConnectorPath(pr, py, busX, cy, cl, cornerRadius);
 
-      // Create background shadow for better delineation
-      const shadowEdge = document.createElementNS(svgNS, "path");
-      shadowEdge.setAttribute("d", dPath);
-      shadowEdge.setAttribute("fill", "none");
-      shadowEdge.setAttribute("stroke", "#000000");
-      shadowEdge.setAttribute("stroke-width", "3");
-      shadowEdge.setAttribute("stroke-linecap", "round");
-      shadowEdge.setAttribute("stroke-linejoin", "round");
-      shadowEdge.setAttribute("opacity", "0.3");
-      graphContent.appendChild(shadowEdge);
+      // Create more organic, branch-like path
+      const dPath = createBranchPath(pr, py, busX, cy, cl, cornerRadius);
 
-      // Create main edge with parent-specific color
-      const edge = document.createElementNS(svgNS, "path");
-      edge.setAttribute("d", dPath);
-      edge.setAttribute("fill", "none");
-      edge.setAttribute("stroke", getParentColor(parentId));
-      edge.setAttribute("stroke-width", edgeWidth);
-      edge.setAttribute("stroke-linecap", "round");
-      edge.setAttribute("stroke-linejoin", "round");
-      graphContent.appendChild(edge);
+      // Create branch background area for separation
+      const branchBg = document.createElementNS(svgNS, "path");
+      const bgPath = createBranchBackgroundPath(pr, py, busX, cy, cl, 8);
+      branchBg.setAttribute("d", bgPath);
+      branchBg.setAttribute("fill", "none");
+      branchBg.setAttribute("stroke", getParentColor(parentId));
+      branchBg.setAttribute("stroke-width", "12");
+      branchBg.setAttribute("stroke-linecap", "round");
+      branchBg.setAttribute("stroke-linejoin", "round");
+      branchBg.setAttribute("opacity", "0.08");
+      graphContent.appendChild(branchBg);
+
+      // Create main branch stem
+      const mainBranch = document.createElementNS(svgNS, "path");
+      mainBranch.setAttribute("d", dPath);
+      mainBranch.setAttribute("fill", "none");
+      mainBranch.setAttribute("stroke", getParentColor(parentId));
+      mainBranch.setAttribute("stroke-width", "4");
+      mainBranch.setAttribute("stroke-linecap", "round");
+      mainBranch.setAttribute("stroke-linejoin", "round");
+      graphContent.appendChild(mainBranch);
+
+      // Add branch highlight/shine effect
+      const branchHighlight = document.createElementNS(svgNS, "path");
+      branchHighlight.setAttribute("d", dPath);
+      branchHighlight.setAttribute("fill", "none");
+      branchHighlight.setAttribute("stroke", "#ffffff");
+      branchHighlight.setAttribute("stroke-width", "1");
+      branchHighlight.setAttribute("stroke-linecap", "round");
+      branchHighlight.setAttribute("stroke-linejoin", "round");
+      branchHighlight.setAttribute("opacity", "0.6");
+      graphContent.appendChild(branchHighlight);
     });
   });
 
