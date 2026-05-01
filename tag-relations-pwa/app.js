@@ -196,7 +196,7 @@ function renderTagRelations() {
 
   function getRelationOffset(index, total) {
     if (total <= 1) return 0;
-    const step = Math.max(6, 24 / total);
+    const step = 24;
     return (index - (total - 1) / 2) * step;
   }
 
@@ -204,7 +204,7 @@ function renderTagRelations() {
     if (Math.abs(cy - py) < 1) {
       return `M ${pr} ${py} L ${cl} ${cy}`;
     }
-    return `M ${pr} ${py} L ${busX} ${py} L ${busX} ${cy} L ${cl} ${cy}`;
+    return `M ${pr} ${py} H ${busX} V ${cy} H ${cl}`;
   }
 
   function textWidthBasedNodeWidth(tag) {
@@ -225,10 +225,11 @@ function renderTagRelations() {
   }
 
   function getBranchX(pr, cl, relationWeight) {
-    const minBranchX = pr + 18;
-    const maxBranchX = Math.max(pr + 30, cl - 18);
-    const baseX = pr + Math.min(maxBranchX - pr, Math.max(24, (cl - pr) * 0.42));
-    return Math.max(minBranchX, Math.min(maxBranchX, baseX + relationWeight * 12));
+    const minBranchX = pr + 20;
+    const maxBranchX = Math.max(pr + 48, cl - 20);
+    const span = cl - pr;
+    const baseX = pr + Math.min(maxBranchX - pr, Math.max(28, span * 0.34));
+    return Math.max(minBranchX, Math.min(maxBranchX, baseX + relationWeight * 32));
   }
 
   function buildRelationMaps() {
@@ -263,7 +264,7 @@ function renderTagRelations() {
     const childIndex = Math.max(0, childList.indexOf(parentId));
     const parentOffset = getRelationOffset(parentIndex, parentList.length);
     const childOffset = getRelationOffset(childIndex, childList.length);
-    const relationWeight = parentIndex - (parentList.length - 1) / 2 + (childIndex - (childList.length - 1) / 2) * 0.25;
+    const relationWeight = parentIndex - (parentList.length - 1) / 2 + (childIndex - (childList.length - 1) / 2) * 0.6;
     const branchX = getBranchX(pr, cl, relationWeight);
     return { dPath: createConnectionPath(pr, py, branchX, cy, cl, parentOffset, childOffset) };
   }
