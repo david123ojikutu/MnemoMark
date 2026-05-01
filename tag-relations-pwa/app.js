@@ -207,16 +207,16 @@ function renderTagRelations() {
     return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
   }
 
-  function createConnectionPath(pr, py, cl, cy, childOffset) {
-    const branchDistance = Math.max(20, (cl - pr) * 0.3);
-    const branchX = pr + branchDistance;
-    const startY = py + childOffset;
-    const endY = cy + childOffset;
+  function createConnectionPath(px, py, cx, cy, childOffset) {
+    const branchDistance = Math.max(20, (cy - py) * 0.3);
+    const branchY = py + branchDistance;
+    const startX = px + childOffset;
+    const endX = cx + childOffset;
     
-    if (Math.abs(endY - startY) < 1) {
-      return `M ${pr} ${startY} L ${cl} ${endY}`;
+    if (Math.abs(endX - startX) < 1) {
+      return `M ${startX} ${py} L ${endX} ${cy}`;
     }
-    return `M ${pr} ${startY} H ${branchX} V ${endY} H ${cl}`;
+    return `M ${startX} ${py} V ${branchY} H ${endX} V ${cy}`;
   }
 
   function buildRelationMaps() {
@@ -241,14 +241,18 @@ function renderTagRelations() {
   }
 
   function renderConnection(parentNode, childNode, parentId, childId, parentChildren, childParents) {
-    const pr = parentNode.x + parentNode.width;
-    const py = centerY(parentNode);
-    const cl = childNode.x;
-    const cy = centerY(childNode);
+    const px = centerX(parentNode);
+    const py = parentNode.y + parentNode.height;
+    const cx = centerX(childNode);
+    const cy = childNode.y;
     const childList = childParents.get(childId) || [];
     const childIndex = Math.max(0, childList.indexOf(parentId));
     const childOffset = getRelationOffset(childIndex, childList.length);
-    return { dPath: createConnectionPath(pr, py, cl, cy, childOffset) };
+    return { dPath: createConnectionPath(px, py, cx, cy, childOffset) };
+  }
+
+  function centerX(node) {
+    return node.x + node.width / 2;
   }
 
   /** Same as valid parents but preserves `parentIds` order (main branch = first eligible parent). */
@@ -284,16 +288,16 @@ function renderTagRelations() {
     maxDepth = Math.max(maxDepth, depth.get(t.id) ?? 0);
   });
 
-  const colWidth = [];
+  const rowHeight = [];
   for (let d = 0; d <= maxDepth; d++) {
     const atDepth = tags.filter((t) => (depth.get(t.id) ?? 0) === d);
-    colWidth[d] = atDepth.reduce((m, tag) => Math.max(m, textWidthBasedNodeWidth(tag)), 96);
+    rowHeight[d] = atDepth.reduce((m, tag) => Math.max(m, lineHeight), 30);
   }
 
-  const colLeft = [];
-  colLeft[0] = marginX;
+  const rowTop = [];
+  rowTop[0] = marginY;
   for (let d = 1; d <= maxDepth; d++) {
-    colLeft[d] = colLeft[d - 1] + colWidth[d - 1] + channelWidth;
+    rowTop[d] = rowTop[d - 1] + rowHeight[d - 1] + channelWidth;
   }
 
   /**
@@ -320,27 +324,33 @@ function renderTagRelations() {
   layoutChildren.forEach((list) => list.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
 
   const subGap = 16;
+  const parentGap = 40;
   const rootGap = 32;
-  const leafBand = lineHeight + 12;
-  const heightMemo = new Map();
+  const leafBand = textWidthBasedNodeWidth({ name: "x" }) + 12;
+  const widthMemo = new Map();
 
-  function subtreePixelHeight(id) {
-    if (heightMemo.has(id)) return heightMemo.get(id);
+  function subtreePixelWidth(id) {
+    if (widthMemo.has(id)) return widthMemo.get(id);
     const kids = layoutChildren.get(id) || [];
     if (!kids.length) {
-      heightMemo.set(id, leafBand);
+      widthMemo.set(id, leafBand);
       return leafBand;
     }
-    let s = 0;
-    kids.forEach((k, i) => {
-      s += subtreePixelHeight(k.id);
-      if (i < kids.length - 1) s += subGap;
-    });
-    heightMemo.set(id, s);
+    const kidWidths = kids.map((k) => subtreePixelWidth(k.id));
+    const gaps = kids.length - 1;
+    const groupedGaps = [];
+    let lastParentId = null;
+    for (let i = 0; i < gaps; i++) {
+      const parent1 = primaryParentId(kids[i]);
+      const parent2 = primaryParentId(kids[i + 1]);
+      groupedGaps.push(parent1 !== parent2 ? parentGap : subGap);
+    }
+    let s = kidWidths.reduce((a, b) => a + b, 0) + groupedGaps.reduce((a, b) => a + b, 0);
+    widthMemo.set(id, s);
     return s;
   }
 
-  tags.forEach((t) => subtreePixelHeight(t.id));
+  tags.forEach((t) => subtreePixelWidth(t.id));
 
   let roots = tags
     .filter((t) => primaryParentId(t) === null)
@@ -359,53 +369,61 @@ function renderTagRelations() {
 
   const layout = new Map();
 
-  function placeNode(tag, y0, y1) {
+  function placeNode(tag, x0, x1) {
     const d = depth.get(tag.id) ?? 0;
-    const x = colLeft[d];
-    const w = textWidthBasedNodeWidth(tag);
+    const y = rowTop[d];
+    const h = lineHeight;
     const kids = (layoutChildren.get(tag.id) || []).slice();
 
     if (!kids.length) {
-      const cy = (y0 + y1) / 2;
+      const cx = (x0 + x1) / 2;
       layout.set(tag.id, {
-        x,
-        y: cy - lineHeight / 2,
-        width: w,
-        height: lineHeight,
+        x: cx - textWidthBasedNodeWidth(tag) / 2,
+        y,
+        width: textWidthBasedNodeWidth(tag),
+        height: h,
         tag
       });
-      return cy;
+      return cx;
     }
 
-    const total = kids.reduce((s, k) => s + subtreePixelHeight(k.id), 0) + (kids.length - 1) * subGap;
-    let cur = y0 + (y1 - y0 - total) / 2;
+    const kidWidths = kids.map((k) => subtreePixelWidth(k.id));
+    const gaps = kids.length - 1;
+    const groupedGaps = [];
+    for (let i = 0; i < gaps; i++) {
+      const parent1 = primaryParentId(kids[i]);
+      const parent2 = primaryParentId(kids[i + 1]);
+      groupedGaps.push(parent1 !== parent2 ? parentGap : subGap);
+    }
+    const total = kidWidths.reduce((a, b) => a + b, 0) + groupedGaps.reduce((a, b) => a + b, 0);
+    let cur = x0 + (x1 - x0 - total) / 2;
     const centers = [];
     kids.forEach((k, i) => {
-      const h = subtreePixelHeight(k.id);
-      const cy = placeNode(k, cur, cur + h);
-      centers.push(cy);
-      cur += h + (i < kids.length - 1 ? subGap : 0);
+      const w = subtreePixelWidth(k.id);
+      const cx = placeNode(k, cur, cur + w);
+      centers.push(cx);
+      cur += w + (i < gaps ? groupedGaps[i] : 0);
     });
-    const pcy = centers.reduce((a, b) => a + b, 0) / centers.length;
+    const pcx = centers.reduce((a, b) => a + b, 0) / centers.length;
     layout.set(tag.id, {
-      x,
-      y: pcy - lineHeight / 2,
-      width: w,
-      height: lineHeight,
+      x: pcx - textWidthBasedNodeWidth(tag) / 2,
+      y,
+      width: textWidthBasedNodeWidth(tag),
+      height: h,
       tag
     });
-    return pcy;
+    return pcx;
   }
 
-  let yCursor = marginY;
+  let xCursor = marginX;
   roots.forEach((r, i) => {
-    const h = subtreePixelHeight(r.id);
-    placeNode(r, yCursor, yCursor + h);
-    yCursor += h + (i < roots.length - 1 ? rootGap : 0);
+    const w = subtreePixelWidth(r.id);
+    placeNode(r, xCursor, xCursor + w);
+    xCursor += w + (i < roots.length - 1 ? rootGap : 0);
   });
 
-  const height = Math.max(220, yCursor + marginY);
-  const width = colLeft[maxDepth] + colWidth[maxDepth] + marginX + 40;
+  const width = Math.max(240, xCursor + marginX);
+  const height = rowTop[maxDepth] + rowHeight[maxDepth] + marginY + 40;
 
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
@@ -424,10 +442,6 @@ function renderTagRelations() {
   bgRect.setAttribute("height", String(height));
   bgRect.setAttribute("fill", "#0d1117");
   graphContent.appendChild(bgRect);
-
-  function centerY(node) {
-    return node.y + node.height / 2;
-  }
 
   const relationMaps = buildRelationMaps();
 
