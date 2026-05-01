@@ -127,29 +127,8 @@ input {
 .legend-line {
   width: 28px;
   height: 2px;
-  background: linear-gradient(90deg, #7c3aed, #2563eb, #dc2626, #16a34a, #ca8a04, #c2410c);
+  background: #7c3aed;
   position: relative;
-}
-
-.legend-branch {
-  display: inline-block;
-  width: 32px;
-  height: 8px;
-  background: linear-gradient(90deg, #7c3aed 0%, #2563eb 20%, #dc2626 40%, #16a34a 60%, #ca8a04 80%, #c2410c 100%);
-  border-radius: 4px;
-  position: relative;
-  box-shadow: 0 1px 2px rgba(255,255,255,0.3);
-}
-
-.legend-branch::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.8) 100%);
-  border-radius: 1px;
 }
 
 .legend-line::after {
@@ -169,7 +148,7 @@ input {
   max-height: 76vh;
   border: 1px solid #33475b;
   border-radius: 8px;
-  background: #ececf2;
+  background: #0d1117;
   overflow: auto;
   cursor: grab;
 }
