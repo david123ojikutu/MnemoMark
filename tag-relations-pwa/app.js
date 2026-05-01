@@ -183,10 +183,10 @@ function renderTagRelations() {
   const marginX = 48;
   const marginY = 40;
   const cornerRadius = 10;
-  const edgeStroke = "#6d28d9";
+  const edgeStroke = "#7c3aed";
   const edgeWidth = "2.5";
   const nodePadding = 12;
-  const labelFill = "#1f2937";
+  const labelFill = "#e8edf3";
 
   function textWidthApprox(tag) {
     const name = tag?.name || "";
@@ -199,24 +199,19 @@ function renderTagRelations() {
     return (index - (total - 1) / 2) * step;
   }
 
-  function getParentOffset(parentId, childId, parentChildren) {
-    const siblings = parentChildren.get(parentId) || [];
-    if (siblings.length <= 1) return 0;
-    const index = Math.max(0, siblings.indexOf(childId));
-    return getRelationOffset(index, siblings.length);
-  }
-
-  function createConnectionPath(pr, py, cl, cy, pOffset, cOffset, branchWeight) {
-    const startY = py + pOffset;
-    const endY = cy + cOffset;
-    const minBranchX = pr + 18;
-    const maxBranchX = Math.max(minBranchX, cl - 18);
-    const branchX = Math.max(minBranchX, Math.min(maxBranchX, pr + 24 + branchWeight * 10));
-
-    if (Math.abs(endY - startY) < 1) {
-      return `M ${pr} ${startY} H ${branchX} H ${cl}`;
+  function createConnectionPath(pr, py, cl, cy, parentIndex, totalParents, childIndex, totalChildren) {
+    const parentOffsetY = getRelationOffset(parentIndex, totalParents);
+    const childOffsetY = getRelationOffset(childIndex, totalChildren);
+    const branchOffsetX = (parentIndex - (totalParents - 1) / 2) * 12;
+    
+    const midX = pr + Math.max(24, (cl - pr) * 0.35);
+    const branchX = midX + branchOffsetX;
+    
+    if (Math.abs(cy - py) < 1) {
+      return `M ${pr} ${py} H ${cl}`;
     }
-    return `M ${pr} ${startY} H ${branchX} V ${endY} H ${cl}`;
+    
+    return `M ${pr} ${py} H ${branchX} V ${cy} H ${cl}`;
   }
 
   function textWidthBasedNodeWidth(tag) {
@@ -265,12 +260,16 @@ function renderTagRelations() {
     const py = centerY(parentNode);
     const cl = childNode.x;
     const cy = centerY(childNode);
-    const parentOffset = getParentOffset(parentId, childId, parentChildren);
+    
+    const siblings = parentChildren.get(parentId) || [];
+    const parentIndex = Math.max(0, siblings.indexOf(childId));
+    const totalParents = siblings.length;
+    
     const childList = childParents.get(childId) || [];
     const childIndex = Math.max(0, childList.indexOf(parentId));
-    const childOffset = getRelationOffset(childIndex, childList.length);
-    const branchWeight = parentOffset / 18;
-    return { dPath: createConnectionPath(pr, py, cl, cy, parentOffset, childOffset, branchWeight) };
+    const totalChildren = childList.length;
+    
+    return { dPath: createConnectionPath(pr, py, cl, cy, parentIndex, totalParents, childIndex, totalChildren) };
   }
 
   /** Same as valid parents but preserves `parentIds` order (main branch = first eligible parent). */
@@ -444,7 +443,7 @@ function renderTagRelations() {
   bgRect.setAttribute("y", "0");
   bgRect.setAttribute("width", String(width));
   bgRect.setAttribute("height", String(height));
-  bgRect.setAttribute("fill", "#ffffff");
+  bgRect.setAttribute("fill", "#0d1117");
   graphContent.appendChild(bgRect);
 
   function centerY(node) {
@@ -503,8 +502,8 @@ function renderTagRelations() {
     rect.setAttribute("width", String(node.width));
     rect.setAttribute("height", String(node.height));
     rect.setAttribute("rx", "8");
-    rect.setAttribute("fill", "#f7f9fc");
-    rect.setAttribute("stroke", "#c2c8d6");
+    rect.setAttribute("fill", "#111d2b");
+    rect.setAttribute("stroke", "#2f4d6f");
     rect.setAttribute("stroke-width", "1.2");
     graphContent.appendChild(rect);
 
