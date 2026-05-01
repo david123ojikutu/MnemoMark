@@ -207,22 +207,16 @@ function renderTagRelations() {
     return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
   }
 
-  function getTrunkX(pr, childXs) {
-    if (!childXs.length) return pr + 24;
-    const minChildX = Math.min(...childXs);
-    const desired = Math.min(minChildX - 14, pr + 62);
-    return Math.max(pr + 20, desired);
-  }
-
-  function createTrunkPath(pr, py, trunkX) {
-    return `M ${pr} ${py} H ${trunkX}`;
-  }
-
-  function createBranchPath(trunkX, py, cy, cl) {
-    if (Math.abs(cy - py) < 1) {
-      return `M ${trunkX} ${py} L ${cl} ${cy}`;
+  function createConnectionPath(pr, py, cl, cy, childOffset) {
+    const branchDistance = Math.max(20, (cl - pr) * 0.3);
+    const branchX = pr + branchDistance;
+    const startY = py + childOffset;
+    const endY = cy + childOffset;
+    
+    if (Math.abs(endY - startY) < 1) {
+      return `M ${pr} ${startY} L ${cl} ${endY}`;
     }
-    return `M ${trunkX} ${py} V ${cy} H ${cl}`;
+    return `M ${pr} ${startY} H ${branchX} V ${endY} H ${cl}`;
   }
 
   function buildRelationMaps() {
@@ -243,23 +237,10 @@ function renderTagRelations() {
     });
     parentChildren.forEach((list) => list.sort());
     childParents.forEach((list) => list.sort());
-
-    const parentBranchX = new Map();
-    parentChildren.forEach((children, parentId) => {
-      const parentNode = layout.get(parentId);
-      if (!parentNode) return;
-      const childXs = children
-        .map((childId) => layout.get(childId))
-        .filter(Boolean)
-        .map((node) => node.x);
-      const pr = parentNode.x + parentNode.width;
-      parentBranchX.set(parentId, getTrunkX(pr, childXs));
-    });
-
-    return { parentChildren, childParents, parentBranchX };
+    return { parentChildren, childParents };
   }
 
-  function renderConnection(parentNode, childNode, parentId, childId, parentChildren, childParents, parentBranchX) {
+  function renderConnection(parentNode, childNode, parentId, childId, parentChildren, childParents) {
     const pr = parentNode.x + parentNode.width;
     const py = centerY(parentNode);
     const cl = childNode.x;
@@ -267,8 +248,7 @@ function renderTagRelations() {
     const childList = childParents.get(childId) || [];
     const childIndex = Math.max(0, childList.indexOf(parentId));
     const childOffset = getRelationOffset(childIndex, childList.length);
-    const trunkX = parentBranchX.get(parentId) ?? Math.max(pr + 20, cl - 14);
-    return { dPath: createBranchPath(trunkX, py, cy + childOffset, cl) };
+    return { dPath: createConnectionPath(pr, py, cl, cy, childOffset) };
   }
 
   /** Same as valid parents but preserves `parentIds` order (main branch = first eligible parent). */
@@ -451,42 +431,6 @@ function renderTagRelations() {
 
   const relationMaps = buildRelationMaps();
 
-  relationMaps.parentBranchX.forEach((trunkX, parentId) => {
-    const parentNode = layout.get(parentId);
-    if (!parentNode) return;
-    const pr = parentNode.x + parentNode.width;
-    const py = centerY(parentNode);
-    const dPath = createTrunkPath(pr, py, trunkX);
-
-    const outline = document.createElementNS(svgNS, "path");
-    outline.setAttribute("d", dPath);
-    outline.setAttribute("fill", "none");
-    outline.setAttribute("stroke", "#070b10");
-    outline.setAttribute("stroke-width", "8");
-    outline.setAttribute("stroke-linecap", "square");
-    outline.setAttribute("stroke-linejoin", "miter");
-    outline.setAttribute("opacity", "0.45");
-    graphContent.appendChild(outline);
-
-    const edge = document.createElementNS(svgNS, "path");
-    edge.setAttribute("d", dPath);
-    edge.setAttribute("fill", "none");
-    edge.setAttribute("stroke", edgeStroke);
-    edge.setAttribute("stroke-width", edgeWidth);
-    edge.setAttribute("stroke-linecap", "square");
-    edge.setAttribute("stroke-linejoin", "miter");
-    graphContent.appendChild(edge);
-
-    const highlight = document.createElementNS(svgNS, "path");
-    highlight.setAttribute("d", dPath);
-    highlight.setAttribute("fill", "none");
-    highlight.setAttribute("stroke", "rgba(255,255,255,0.5)");
-    highlight.setAttribute("stroke-width", "1");
-    highlight.setAttribute("stroke-linecap", "square");
-    highlight.setAttribute("stroke-linejoin", "miter");
-    graphContent.appendChild(highlight);
-  });
-
   tags.forEach((child) => {
     const childNode = layout.get(child.id);
     if (!childNode) return;
@@ -498,7 +442,7 @@ function renderTagRelations() {
     parents.forEach((parentId) => {
       const parentNode = layout.get(parentId);
       if (!parentNode) return;
-      const { dPath } = renderConnection(parentNode, childNode, parentId, child.id, relationMaps.parentChildren, relationMaps.childParents, relationMaps.parentBranchX);
+      const { dPath } = renderConnection(parentNode, childNode, parentId, child.id, relationMaps.parentChildren, relationMaps.childParents);
 
       const outline = document.createElementNS(svgNS, "path");
       outline.setAttribute("d", dPath);
