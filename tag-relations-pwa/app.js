@@ -215,13 +215,20 @@ function renderTagRelations() {
     return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
   }
 
-  function createConnectionPath(pr, py, busX, cy, cl, prOffset, cyOffset) {
+  function createConnectionPath(pr, py, branchX, cy, cl, prOffset, cyOffset) {
     const startY = py + prOffset;
     const endY = cy + cyOffset;
     if (Math.abs(endY - startY) < 1) {
       return `M ${pr} ${startY} L ${cl} ${endY}`;
     }
-    return `M ${pr} ${startY} L ${busX} ${startY} L ${busX} ${endY} L ${cl} ${endY}`;
+    return `M ${pr} ${startY} H ${branchX} V ${endY} H ${cl}`;
+  }
+
+  function getBranchX(pr, cl, relationWeight) {
+    const minBranchX = pr + 18;
+    const maxBranchX = Math.max(pr + 30, cl - 18);
+    const baseX = pr + Math.min(maxBranchX - pr, Math.max(24, (cl - pr) * 0.42));
+    return Math.max(minBranchX, Math.min(maxBranchX, baseX + relationWeight * 12));
   }
 
   function buildRelationMaps() {
@@ -256,11 +263,9 @@ function renderTagRelations() {
     const childIndex = Math.max(0, childList.indexOf(parentId));
     const parentOffset = getRelationOffset(parentIndex, parentList.length);
     const childOffset = getRelationOffset(childIndex, childList.length);
-    let busX = cl - busInset;
-    const minBus = pr + 12;
-    if (busX < minBus) busX = minBus;
-    if (busX >= cl) busX = Math.max(pr + 6, cl - 6);
-    return { dPath: createConnectionPath(pr, py, busX, cy, cl, parentOffset, childOffset) };
+    const relationWeight = parentIndex - (parentList.length - 1) / 2 + (childIndex - (childList.length - 1) / 2) * 0.25;
+    const branchX = getBranchX(pr, cl, relationWeight);
+    return { dPath: createConnectionPath(pr, py, branchX, cy, cl, parentOffset, childOffset) };
   }
 
   /** Same as valid parents but preserves `parentIds` order (main branch = first eligible parent). */
@@ -509,7 +514,8 @@ function renderTagRelations() {
 
     const text = document.createElementNS(svgNS, "text");
     text.setAttribute("x", String(node.x + nodePadding));
-    text.setAttribute("y", String(node.y + node.height * 0.72));
+    text.setAttribute("y", String(node.y + node.height / 2));
+    text.setAttribute("dominant-baseline", "middle");
     text.setAttribute("text-anchor", "start");
     text.setAttribute("fill", labelFill);
     text.setAttribute("font-size", String(fontSize));
