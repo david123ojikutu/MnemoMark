@@ -200,17 +200,15 @@ function renderTagRelations() {
   }
 
   function createConnectionPath(pr, py, cl, cy, parentIndex, totalParents, childIndex, totalChildren) {
-    const parentOffsetY = getRelationOffset(parentIndex, totalParents);
-    const childOffsetY = getRelationOffset(childIndex, totalChildren);
-    const branchOffsetX = (parentIndex - (totalParents - 1) / 2) * 12;
-    
-    const midX = pr + Math.max(24, (cl - pr) * 0.35);
-    const branchX = midX + branchOffsetX;
-    
+    const baseBranchX = pr + Math.max(24, (cl - pr) * 0.35);
+    const parentSpread = totalParents > 1 ? (parentIndex - (totalParents - 1) / 2) * 8 : 0;
+    const childSpread = totalChildren > 1 ? (childIndex - (totalChildren - 1) / 2) * 5 : 0;
+    const branchX = Math.max(pr + 18, Math.min(cl - 18, baseBranchX + parentSpread + childSpread));
+
     if (Math.abs(cy - py) < 1) {
-      return `M ${pr} ${py} H ${cl}`;
+      return `M ${pr} ${py} H ${branchX} H ${cl}`;
     }
-    
+
     return `M ${pr} ${py} H ${branchX} V ${cy} H ${cl}`;
   }
 
@@ -220,18 +218,6 @@ function renderTagRelations() {
 
   function validParentIds(tag) {
     return (Array.isArray(tag.parentIds) ? tag.parentIds : []).filter((pid) => byId.has(pid));
-  }
-
-  function createConnectionPath(pr, py, cl, cy, childOffset) {
-    const branchDistance = Math.max(20, (cl - pr) * 0.3);
-    const branchX = pr + branchDistance;
-    const startY = py + childOffset;
-    const endY = cy + childOffset;
-    
-    if (Math.abs(endY - startY) < 1) {
-      return `M ${pr} ${startY} L ${cl} ${endY}`;
-    }
-    return `M ${pr} ${startY} H ${branchX} V ${endY} H ${cl}`;
   }
 
   function buildRelationMaps() {
