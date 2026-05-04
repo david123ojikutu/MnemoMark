@@ -200,16 +200,20 @@ function renderTagRelations() {
   }
 
   function createConnectionPath(pr, py, cl, cy, parentIndex, totalParents, childIndex, totalChildren) {
-    const baseBranchX = pr + Math.max(24, (cl - pr) * 0.35);
+    const midX = (pr + cl) / 2;
     const parentSpread = totalParents > 1 ? (parentIndex - (totalParents - 1) / 2) * 8 : 0;
-    const childSpread = totalChildren > 1 ? (childIndex - (totalChildren - 1) / 2) * 5 : 0;
-    const branchX = Math.max(pr + 18, Math.min(cl - 18, baseBranchX + parentSpread + childSpread));
+    const childSpread = totalChildren > 1 ? (childIndex - (totalChildren - 1) / 2) * 6 : 0;
+    
+    const ctrl1X = pr + Math.max(14, (midX - pr) * 0.4) + parentSpread;
+    const ctrl1Y = py + Math.abs(cy - py) * 0.2;
+    const ctrl2X = cl - Math.max(14, (cl - midX) * 0.4) - childSpread;
+    const ctrl2Y = cy - Math.abs(cy - py) * 0.2;
 
     if (Math.abs(cy - py) < 1) {
-      return `M ${pr} ${py} H ${branchX} H ${cl}`;
+      return `M ${pr} ${py} Q ${midX} ${py} ${cl} ${cy}`;
     }
 
-    return `M ${pr} ${py} H ${branchX} V ${cy} H ${cl}`;
+    return `M ${pr} ${py} C ${ctrl1X} ${ctrl1Y} ${ctrl2X} ${ctrl2Y} ${cl} ${cy}`;
   }
 
   function textWidthBasedNodeWidth(tag) {
